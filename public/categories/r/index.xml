@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>R on The New Golden Hammer</title>
+    <link>/categories/r/</link>
+    <description>Recent content in R on The New Golden Hammer</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>Joshua White &amp;copy; {year}</copyright>
+    <lastBuildDate>Sat, 30 Mar 2019 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="/categories/r/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Simulation Stimulation Part 2: AFL Season 2019</title>
+      <link>/post/simulation-stimulation-part-2-afl-season-2019/</link>
+      <pubDate>Sat, 30 Mar 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/post/simulation-stimulation-part-2-afl-season-2019/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Simulation Stimulation: AFL Season 2018</title>
+      <link>/blog/simulation-stimulation-afl-season-2018/</link>
+      <pubDate>Sat, 30 Mar 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/blog/simulation-stimulation-afl-season-2018/</guid>
+      <description>Recently I was, as I am (unfortunately) rather wont to do, aimlessly watching YouTube videos when I came across these two videos by Numberphile. Here, the authors discuss their attempts at modelling and simulating seasons of the English Premier League.
+As an avid AFL fan, and with the upcoming season fast approaching (edit, now underway, carn the cats!), why not try to apply these methods to the AFL season. This post will be the first of a three part series.</description>
+    </item>
+    
+  </channel>
+</rss>

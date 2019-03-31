@@ -1,0 +1,1342 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>The New Golden Hammer on The New Golden Hammer</title>
+    <link>/</link>
+    <description>Recent content in The New Golden Hammer on The New Golden Hammer</description>
+    <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator>
+    <language>en-us</language>
+    <copyright>Joshua White &amp;copy; {year}</copyright>
+    <lastBuildDate>Sat, 01 Jun 2030 13:00:00 +1000</lastBuildDate>
+    <atom:link href="/" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Example Talk</title>
+      <link>/talk/example/</link>
+      <pubDate>Sat, 01 Jun 2030 13:00:00 +1000</pubDate>
+      
+      <guid>/talk/example/</guid>
+      <description>&lt;div class=&#34;alert alert-note&#34;&gt;
+  &lt;div&gt;
+    &lt;p&gt;Click on the &lt;strong&gt;Slides&lt;/strong&gt; button above to view the built-in slides feature.&lt;/p&gt;
+
+  &lt;/div&gt;
+&lt;/div&gt;
+
+
+&lt;p&gt;Slides can be added in a few ways:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Create&lt;/strong&gt; slides using Academic&amp;rsquo;s &lt;em&gt;Slides&lt;/em&gt; feature and link using &lt;code&gt;url_slides&lt;/code&gt; parameter in the front matter of the talk file&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Upload&lt;/strong&gt; an existing slide deck to &lt;code&gt;static/&lt;/code&gt; and link using &lt;code&gt;url_slides&lt;/code&gt; parameter in the front matter of the talk file&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Embed&lt;/strong&gt; your slides (e.g. Google Slides) or presentation video on this page using &lt;a href=&#34;https://sourcethemes.com/academic/docs/writing-markdown-latex/&#34; target=&#34;_blank&#34;&gt;shortcodes&lt;/a&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Further talk details can easily be added to this page using &lt;em&gt;Markdown&lt;/em&gt; and $\rm \LaTeX$ math code.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Simulation Stimulation Part 2: AFL Season 2019</title>
+      <link>/post/simulation-stimulation-part-2-afl-season-2019/</link>
+      <pubDate>Sat, 30 Mar 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/post/simulation-stimulation-part-2-afl-season-2019/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Simulation Stimulation: AFL Season 2018</title>
+      <link>/blog/simulation-stimulation-afl-season-2018/</link>
+      <pubDate>Sat, 30 Mar 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/blog/simulation-stimulation-afl-season-2018/</guid>
+      <description>
+
+
+&lt;p&gt;Recently I was, as I am (unfortunately) rather wont to do, aimlessly watching YouTube videos when I came across these &lt;a href=&#34;https://www.youtube.com/watch?v=Vv9wpQIGZDw&#34;&gt;two&lt;/a&gt; &lt;a href=&#34;https://www.youtube.com/watch?v=Zs2M7gWSbTg&#34;&gt;videos&lt;/a&gt; by Numberphile. Here, the authors discuss their attempts at modelling and simulating seasons of the English Premier League.&lt;/p&gt;
+&lt;p&gt;As an avid &lt;a href=&#34;https://en.wikipedia.org/wiki/Australian_Football_League&#34;&gt;AFL&lt;/a&gt; fan, and with the upcoming season fast approaching (edit, now underway, &lt;a href=&#34;https://www.urbandictionary.com/define.php?term=carn&#34;&gt;carn&lt;/a&gt; &lt;a href=&#34;https://www.afl.com.au/news/2019-03-22/match-report-collingwood-v-geelong&#34;&gt;the cats!&lt;/a&gt;), why not try to apply these methods to the AFL season. This post will be the first of a three part series. In part 1, I will discuss the models and compare their results to the actual data from the 2018 season. Part 2 will apply the models to the 2019 season. And part 3 will go through the details and show the code.&lt;/p&gt;
+&lt;div id=&#34;the-models&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;The Models&lt;/h2&gt;
+&lt;div id=&#34;poisson-distributed-team-scores&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Poisson Distributed Team Scores&lt;/h3&gt;
+&lt;p&gt;Okay, lets discuss the model. Basically, each team’s score in every game is modeled as a random drawing from a Poisson distribution — i.e. &lt;span class=&#34;math inline&#34;&gt;\(P(k) = e^{-\lambda} \frac{\lambda^k}{k!}\)&lt;/span&gt;, where k is the number of points scored. A Poisson distribution is great for simple modelling because it only requires estimating one parameter, &lt;span class=&#34;math inline&#34;&gt;\(\lambda\)&lt;/span&gt;. On the other hand, it isn’t exactly suited to the AFL context because the model assumes that all events (in this case, scoring a point) occur independently. In AFL, a goal in AFL is worth 6 points, violating this assumption.&lt;/p&gt;
+&lt;p&gt;In any case, let’s press on with that in mind. We calculate &lt;span class=&#34;math inline&#34;&gt;\(\lambda\)&lt;/span&gt; for each game, based on the points scored for and against, at home and away, for each team in 2018:&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;math inline&#34;&gt;\(\lambda_{home team} =\)&lt;/span&gt; League Average points scored at home &lt;span class=&#34;math inline&#34;&gt;\(\times\)&lt;/span&gt; home team attack strength at home &lt;span class=&#34;math inline&#34;&gt;\(\times\)&lt;/span&gt; awayteam attack strength away&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;math inline&#34;&gt;\(\lambda_{away team} =\)&lt;/span&gt; League Average points scored away &lt;span class=&#34;math inline&#34;&gt;\(\times\)&lt;/span&gt; away team attack strength away &lt;span class=&#34;math inline&#34;&gt;\(\times\)&lt;/span&gt; hometeam defense strength at home&lt;/p&gt;
+&lt;p&gt;As you can see, the model takes into account the general home advantage as well as each particular team’s attack and defensive strengths at home and away. The strength parameters refereed to above are simply the averages for that particular team, relative to the league-wide average.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;normally-distributed-team-scores&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Normally Distributed team scores&lt;/h3&gt;
+&lt;p&gt;This model is a simple extension to the Poisson-based model above, and should be superior to it because:&lt;/p&gt;
+&lt;ol style=&#34;list-style-type: decimal&#34;&gt;
+&lt;li&gt;There is no assumption of independence, and&lt;/li&gt;
+&lt;li&gt;It has an extra parameter to capture differences among teams in the variance of their defense and attack strength.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Here, it is assumed that team scores are normally distributed around &lt;span class=&#34;math inline&#34;&gt;\(\lambda\)&lt;/span&gt; as defined above, with a standard deviation calculated as the pooled standard deviation of that teams ‘for’ scores standard deviation, and the opponents ‘against’ scores standard deviation: &lt;span class=&#34;math display&#34;&gt;\[Points_{teamA} \sim \mathcal{N}(\mu=\lambda,\,\sigma = \sigma_p)\,\]&lt;/span&gt; where: &lt;br&gt; &lt;span class=&#34;math display&#34;&gt;\[\sigma_{p}=\frac{\sigma_{teamAfor} + \sigma_{teamBagainst}}{2}\]&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;rankings-model-tanh&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Rankings model: tanh&lt;/h3&gt;
+&lt;p&gt;This model simply relies on the ordinal data of last years final Ladder: Carlton, the wooden spoon winners (i.e. the last placeholders, out of 18 teams) get a ranking of 1, and Richmond, who finished on top of the table get a ranking of 18. Then, with this information, the probability of team A winning is modelled as follows:&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;math display&#34;&gt;\[P(A\&amp;gt;wins)=\frac{tanh(\frac{a-b}{w} + d)+1}{2}\]&lt;/span&gt; where,&lt;br&gt; A = home team &lt;br&gt; a = home team ranking &lt;br&gt; b = away team ranking &lt;br&gt; w = weighting parameter (the higher the number the less weight placed on the rankings) &lt;br&gt; d = draw paramater, to allow for possibility of draws, calculated as so that &lt;span class=&#34;math inline&#34;&gt;\(tanh(d) = -draw\&amp;gt;rate\)&lt;/span&gt;&lt;/p&gt;
+&lt;p&gt;The draw rate, &lt;span class=&#34;math inline&#34;&gt;\(\frac{7}{990} \approx 0.007\)&lt;/span&gt;, was based on the likelihood of drawing a game over the past 5 years.&lt;/p&gt;
+&lt;p&gt;The probability of B winning is calculated in the same manner as above, except with &lt;span class=&#34;math inline&#34;&gt;\(b-a\)&lt;/span&gt;.&lt;/p&gt;
+&lt;p&gt;Finally, a draw is the remaining probability: &lt;span class=&#34;math inline&#34;&gt;\(P(Draw)= 1 - P(A\&amp;gt;wins) - P(B\&amp;gt;wins)\)&lt;/span&gt;. This means that the draw rate will be greater for greater rankings differentials, and greater for greater weight parameters.&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;the-data&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;The Data&lt;/h2&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;pointstidy&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 792 x 4
+##    HorA  Team                   FororAgainst Points
+##    &amp;lt;chr&amp;gt; &amp;lt;chr&amp;gt;                  &amp;lt;chr&amp;gt;         &amp;lt;dbl&amp;gt;
+##  1 H     Richmond               For             121
+##  2 H     Essendon               For              99
+##  3 H     St Kilda               For             107
+##  4 H     Port Adelaide          For             110
+##  5 H     Gold Coast             For              55
+##  6 H     Hawthorn               For             101
+##  7 H     Greater Western Sydney For             133
+##  8 H     Melbourne              For              94
+##  9 H     West Coast             For              86
+## 10 H     Adelaide               For             118
+## # ... with 782 more rows&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;fixture2019&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 198 x 2
+##    Hometeam               Awayteam       
+##    &amp;lt;chr&amp;gt;                  &amp;lt;chr&amp;gt;          
+##  1 Carlton                Richmond       
+##  2 Collingwood            Geelong        
+##  3 Melbourne              Port Adelaide  
+##  4 Adelaide               Hawthorn       
+##  5 Brisbane Lions         West Coast     
+##  6 Western Bulldogs       Sydney         
+##  7 St Kilda               Gold Coast     
+##  8 Greater Western Sydney Essendon       
+##  9 Fremantle              North Melbourne
+## 10 Richmond               Collingwood    
+## # ... with 188 more rows&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;results&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Results&lt;/h2&gt;
+&lt;div id=&#34;poisson-model&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Poisson model&lt;/h3&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimtablepois.2018&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##                      Team MedianPos MeanPos BestPos WorstPos percentWon
+## 1               Melbourne       2.0     2.2       1        5         30
+## 2                Richmond       2.0     2.3       1        6         40
+## 3             Collingwood       3.0     2.8       1        5         30
+## 4              West Coast       4.0     3.7       2        6          0
+## 5                 Geelong       5.0     4.8       2        7          0
+## 6                Hawthorn       6.0     6.0       4       10          0
+## 7         North Melbourne       8.0     7.7       6       10          0
+## 8  Greater Western Sydney       8.0     8.3       7       11          0
+## 9           Port Adelaide       9.5     9.4       7       12          0
+## 10                 Sydney       9.5     9.5       7       13          0
+## 11               Adelaide      11.0    10.5       5       12          0
+## 12               Essendon      11.0    10.9       9       12          0
+## 13              Fremantle      13.5    13.4      12       14          0
+## 14         Brisbane Lions      13.5    13.5      13       14          0
+## 15       Western Bulldogs      15.0    15.5      15       17          0
+## 16               St Kilda      16.0    15.7      15       17          0
+## 17                Carlton      17.0    17.0      16       18          0
+## 18             Gold Coast      18.0    17.8      17       18          0
+##    percentTop4 percentTop8 percentBottom4 percentLast
+## 1           90         100              0           0
+## 2           90         100              0           0
+## 3           90         100              0           0
+## 4           80         100              0           0
+## 5           30         100              0           0
+## 6           20          90              0           0
+## 7            0          80              0           0
+## 8            0          60              0           0
+## 9            0          20              0           0
+## 10           0          40              0           0
+## 11           0          10              0           0
+## 12           0           0              0           0
+## 13           0           0              0           0
+## 14           0           0              0           0
+## 15           0           0            100           0
+## 16           0           0            100           0
+## 17           0           0            100          20
+## 18           0           0            100          80&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;normal-model&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Normal model&lt;/h3&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimtablenorm.2018&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##                      Team MedianPos MeanPos BestPos WorstPos percentWon
+## 1               Melbourne       2.0     2.2       1        5         30
+## 2                Richmond       2.0     2.3       1        6         40
+## 3             Collingwood       3.0     2.8       1        5         30
+## 4              West Coast       4.0     3.7       2        6          0
+## 5                 Geelong       5.0     4.8       2        7          0
+## 6                Hawthorn       6.0     6.0       4       10          0
+## 7         North Melbourne       8.0     7.7       6       10          0
+## 8  Greater Western Sydney       8.0     8.3       7       11          0
+## 9           Port Adelaide       9.5     9.4       7       12          0
+## 10                 Sydney       9.5     9.5       7       13          0
+## 11               Adelaide      11.0    10.5       5       12          0
+## 12               Essendon      11.0    10.9       9       12          0
+## 13              Fremantle      13.5    13.4      12       14          0
+## 14         Brisbane Lions      13.5    13.5      13       14          0
+## 15       Western Bulldogs      15.0    15.5      15       17          0
+## 16               St Kilda      16.0    15.7      15       17          0
+## 17                Carlton      17.0    17.0      16       18          0
+## 18             Gold Coast      18.0    17.8      17       18          0
+##    percentTop4 percentTop8 percentBottom4 percentLast
+## 1           90         100              0           0
+## 2           90         100              0           0
+## 3           90         100              0           0
+## 4           80         100              0           0
+## 5           30         100              0           0
+## 6           20          90              0           0
+## 7            0          80              0           0
+## 8            0          60              0           0
+## 9            0          20              0           0
+## 10           0          40              0           0
+## 11           0          10              0           0
+## 12           0           0              0           0
+## 13           0           0              0           0
+## 14           0           0              0           0
+## 15           0           0            100           0
+## 16           0           0            100           0
+## 17           0           0            100          20
+## 18           0           0            100          80&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;tanh-model&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Tanh model&lt;/h3&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimlist.2018[[1]] %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
+##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
+##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
+##  1 Richm~          1      1.1        1         2          90          100
+##  2 West ~          2      2.1        1         4          10          100
+##  3 Hawth~          3      3.2        2         5           0           90
+##  4 Colli~          4      4          3         5           0           80
+##  5 Melbo~          5      4.6        3         5           0           30
+##  6 Sydney          6      6.2        6         7           0            0
+##  7 Great~          7      6.9        6         8           0            0
+##  8 North~          8      8.2        8         9           0            0
+##  9 Port ~          9      8.7        7         9           0            0
+## 10 Geelo~         10     10         10        10           0            0
+## 11 Essen~         11     11         11        11           0            0
+## 12 Adela~         12     12.4       12        14           0            0
+## 13 Weste~         13     13.1       12        14           0            0
+## 14 Frema~         14     13.5       12        14           0            0
+## 15 Brisb~         15     15         15        15           0            0
+## 16 St Ki~         16     16         16        16           0            0
+## 17 Gold ~         17     17.4       17        18           0            0
+## 18 Carlt~         18     17.6       17        18           0            0
+## # ... with 3 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
+## #   $percentLast &amp;lt;dbl&amp;gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimlist.2018[[20]] %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
+##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
+##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
+##  1 Richm~        3.5      3.8        1         8          30           50
+##  2 Melbo~        3.5      5.1        1        13          20           70
+##  3 Colli~        4        4.4        1        13          20           80
+##  4 Hawth~        4.5      4.7        2         9           0           50
+##  5 West ~        4.5      5          1        11          30           50
+##  6 Port ~        6.5      7          2        15           0           30
+##  7 Great~        6.5      7.1        2        12           0           20
+##  8 Sydney        7        8          2        15           0           10
+##  9 North~        9.5      8.9        3        14           0           10
+## 10 Geelo~        9.5      9.7        3        16           0           10
+## 11 Essen~       11       11.4        6        18           0            0
+## 12 Frema~       12       11          4        16           0           10
+## 13 Adela~       13       13          9        18           0            0
+## 14 Weste~       14       12          3        17           0           10
+## 15 Carlt~       14       14.1       10        18           0            0
+## 16 Brisb~       14.5     14.3       11        18           0            0
+## 17 St Ki~       16.5     15.3        8        18           0            0
+## 18 Gold ~       17       16.2       10        18           0            0
+## # ... with 3 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
+## #   $percentLast &amp;lt;dbl&amp;gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimlist.2018[[50]] %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
+##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
+##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
+##  1 Geelo~        4.5      5.9        1        11          10           50
+##  2 West ~        5        6.7        2        16           0           50
+##  3 Colli~        6        6.4        2        13           0           20
+##  4 North~        6        7.8        2        17           0           40
+##  5 Melbo~        6        7.9        1        17          20           40
+##  6 Port ~        6.5      7.1        1        16          20           40
+##  7 Richm~        6.5      7.6        1        18          10           20
+##  8 Hawth~        7        6.6        1        12          20           40
+##  9 Great~        9        9.7        3        17           0           20
+## 10 Sydney       10        9.8        2        18           0           30
+## 11 Adela~       10       10.4        5        17           0            0
+## 12 Weste~       10.5     11.1        8        16           0            0
+## 13 Essen~       11.5     10.7        1        16          10           10
+## 14 Frema~       12       10.6        2        17           0           20
+## 15 Brisb~       13.5     12.4        1        18          10           10
+## 16 St Ki~       13.5     12.6        4        18           0           10
+## 17 Gold ~       14       13.3        8        18           0            0
+## 18 Carlt~       15.5     14.4        9        18           0            0
+## # ... with 3 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
+## #   $percentLast &amp;lt;dbl&amp;gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimlist.2018[[100]] %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
+##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
+##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
+##  1 Melbo~        4.5      5.6        1        13          10           50
+##  2 Hawth~        5.5      7          2        18           0           30
+##  3 West ~        6        7.7        1        18          10           50
+##  4 Richm~        7        7.5        1        14          10           20
+##  5 North~        7.5      8.1        1        16          10           10
+##  6 Geelo~        8.5     10          3        18           0           20
+##  7 Sydney        9        8.3        2        16           0           20
+##  8 Carlt~        9.5      9.1        1        18          10           40
+##  9 Colli~       10        9.4        1        18          10           20
+## 10 Port ~       10       10.2        3        17           0           10
+## 11 Essen~       10.5     10.8        2        17           0           10
+## 12 Brisb~       11.5     11.1        4        18           0           10
+## 13 Weste~       11.5     11.3        2        17           0           10
+## 14 Great~       12        9.5        1        16          10           30
+## 15 Adela~       12.5     11          2        18           0           30
+## 16 Gold ~       14       10.9        1        18          20           30
+## 17 St Ki~       14       11.2        1        18          10           10
+## 18 Frema~       14       12.3        6        17           0            0
+## # ... with 3 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
+## #   $percentLast &amp;lt;dbl&amp;gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimlist.2018[[500]] %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
+##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
+##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
+##  1 West ~        5.5      7.7        1        16          10           50
+##  2 Adela~        6.5      7.3        1        14          10           20
+##  3 Richm~        6.5      8.2        2        18           0           40
+##  4 Colli~        7.5      7.9        2        18           0           30
+##  5 Carlt~        8        9.5        2        16           0           20
+##  6 Hawth~        8.5      8.6        1        18          10           30
+##  7 Port ~        8.5      8.9        1        18          10           20
+##  8 Sydney        8.5     10.3        5        18           0            0
+##  9 Weste~       10        8.8        1        18          20           30
+## 10 St Ki~       10        9.4        1        17          20           30
+## 11 Geelo~       10.5      9          1        18          10           20
+## 12 Gold ~       10.5      9.2        2        18           0           40
+## 13 Frema~       10.5     10          3        16           0           10
+## 14 Brisb~       11        9.9        3        17           0           20
+## 15 Melbo~       11       10.1        3        16           0           20
+## 16 Great~       11.5     11.2        1        17          10           10
+## 17 Essen~       12       10.7        2        17           0           10
+## 18 North~       15       14.3        9        18           0            0
+## # ... with 3 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
+## #   $percentLast &amp;lt;dbl&amp;gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimlist.2018[[1000]] %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
+##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
+##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
+##  1 Frema~        6.5      7          2        17           0           20
+##  2 Gold ~        6.5      8.4        4        15           0           20
+##  3 Brisb~        7.5      8.9        4        17           0           10
+##  4 Adela~        7.5      9          1        17          10           20
+##  5 Great~        8        8.5        1        15          10           20
+##  6 Hawth~        8        8.7        1        18          20           30
+##  7 Richm~        8.5      7.7        1        14          10           40
+##  8 Port ~        8.5      7.8        1        15          20           40
+##  9 West ~        8.5      9.1        3        16           0           20
+## 10 St Ki~        9.5      8.7        2        18           0           40
+## 11 Essen~        9.5      9.6        2        18           0           20
+## 12 Sydney       10        9.5        1        17          10           30
+## 13 Colli~       10.5     10          1        18          10           30
+## 14 Carlt~       11.5      9.2        2        18           0           30
+## 15 Melbo~       12       11.3        1        18          10           10
+## 16 Weste~       13       11.6        5        18           0            0
+## 17 North~       14       12.3        3        18           0           20
+## 18 Geelo~       15.5     13.7        5        18           0            0
+## # ... with 3 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
+## #   $percentLast &amp;lt;dbl&amp;gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;OKay, so we don’t have to keep doing simulations with all these different weight parameters, let’s see which ones do the best job of simulating the data. We are going to have to pay it by ear a little based on intuition, however, because we have used the same data to test the model, and we want to avoid overfitting. So we will pick the best model based on (1) it’s spearman coefficient with last year’s ladder and (2) its ability to have varation (the same team doesn’t simply win each year)&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;##Create order comparisons table## 
+#should change this to use lapply or try to put loop insid dataframe fucntion  
+for (w in c(1, 20, 50, 100, 500, 1000)){
+  name &amp;lt;- paste0(&amp;quot;Ordertanh.&amp;quot;, w)
+  assign(name,  match(finalTable2018$Team, Finalsimlist.2018[[w]]$Team))
+  
+}
+
+ordercomparison.2018.tanh &amp;lt;- data.frame(Team = factor(finalTable2018$Team),
+                                        Order2018 = 1:18,
+                                        Ordertanh.1,
+                                        Ordertanh.20,
+                                        Ordertanh.50,
+                                        Ordertanh.100, 
+                                        Ordertanh.500,
+                                        Ordertanh.1000)
+ordercomparison.2018.tanh&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##                      Team Order2018 Ordertanh.1 Ordertanh.20 Ordertanh.50
+## 1                Richmond         1           1            1            7
+## 2              West Coast         2           2            5            2
+## 3             Collingwood         3           4            3            3
+## 4                Hawthorn         4           3            4            8
+## 5               Melbourne         5           5            2            5
+## 6                  Sydney         6           6            8           10
+## 7  Greater Western Sydney         7           7            7            9
+## 8                 Geelong         8          10           10            1
+## 9         North Melbourne         9           8            9            4
+## 10          Port Adelaide        10           9            6            6
+## 11               Essendon        11          11           11           13
+## 12               Adelaide        12          12           13           11
+## 13       Western Bulldogs        13          13           14           12
+## 14              Fremantle        14          14           12           14
+## 15         Brisbane Lions        15          15           16           15
+## 16               St Kilda        16          16           17           16
+## 17             Gold Coast        17          17           18           17
+## 18                Carlton        18          18           15           18
+##    Ordertanh.100 Ordertanh.500 Ordertanh.1000
+## 1              4             3              7
+## 2              3             1              9
+## 3              9             4             13
+## 4              2             6              6
+## 5              1            15             15
+## 6              7             8             12
+## 7             14            16              5
+## 8              6            11             18
+## 9              5            18             17
+## 10            10             7              8
+## 11            11            17             11
+## 12            15             2              4
+## 13            13             9             16
+## 14            18            13              1
+## 15            12            14              3
+## 16            17            10             10
+## 17            16            12              2
+## 18             8             5             14&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;cormatrix.weights &amp;lt;- cor(ordercomparison.2018.tanh[,2:ncol(ordercomparison.2018.tanh)], use = &amp;quot;all.obs&amp;quot;, method = &amp;quot;spearman&amp;quot;)
+
+# lets find a nice way to graphically look at that
+ggcorrplot(cormatrix.weights, lab = TRUE, show.legend = TRUE)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/tanhcomparisons-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;So on this basis, we will choose a weight parameter value of 20 as, on inspection of simulation results, it allows for enough randomness in the system to allow teams in the top 8 some likelihood of winning the cup, but denies the chance for the really teams for winning. Let’s be honest, carlton’s chance of winning the premiership is less than 1 in a million.&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;comparing-the-three-models.&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Comparing the three models.&lt;/h2&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;#create table with different orders. 
+ordercomparison.2018 &amp;lt;- data.frame(Team = factor(finalTable2018$Team),
+                              Order2018 = 1:18,
+                              OrderNorm.2018 = match(finalTable2018$Team, Finalsimtablenorm.2018$Team),
+                              OrderPois.2018 = match(finalTable2018$Team, Finalsimtablepois.2018$Team),
+                              OrderTanh.2018 = match(finalTable2018$Team, Finalsimlist.2018[[20]]$Team)) 
+
+ordercomparison.2018 %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
+##    .$Team        $Order2018 $OrderNorm.2018 $OrderPois.2018 $OrderTanh.2018
+##    &amp;lt;fct&amp;gt;              &amp;lt;int&amp;gt;           &amp;lt;int&amp;gt;           &amp;lt;int&amp;gt;           &amp;lt;int&amp;gt;
+##  1 Richmond               1               2               2               1
+##  2 West Coast             2               4               4               5
+##  3 Collingwood            3               3               3               3
+##  4 Hawthorn               4               6               6               4
+##  5 Melbourne              5               1               1               2
+##  6 Sydney                 6              10              10               8
+##  7 Greater West~          7               8               8               7
+##  8 Geelong                8               5               5              10
+##  9 North Melbou~          9               7               7               9
+## 10 Port Adelaide         10               9               9               6
+## 11 Essendon              11              12              12              11
+## 12 Adelaide              12              11              11              13
+## 13 Western Bull~         13              15              15              14
+## 14 Fremantle             14              13              13              12
+## 15 Brisbane Lio~         15              14              14              16
+## 16 St Kilda              16              16              16              17
+## 17 Gold Coast            17              18              18              18
+## 18 Carlton               18              17              17              15&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;#Let&amp;#39;s now get the spearman&amp;#39;s correlation coefficients and show that in a correlatin matrix
+cormatrix.2018 &amp;lt;- cor(ordercomparison.2018[,2:5], use = &amp;quot;all.obs&amp;quot;, method = &amp;quot;spearman&amp;quot;)
+ggcorrplot(cormatrix.2018, lab = TRUE)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/comparing%20the%20models-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;#graphing and comparing the two models. 
+
+#create mode function
+Mode &amp;lt;- function(x) {
+  ux &amp;lt;- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+###GRAPH FOR POISSON MODEL###
+
+#transpose data to tidy form for use in ggplot
+SimResultspois.2018$simNumber &amp;lt;- sprintf(&amp;quot;sim%d&amp;quot;, seq(1:Nsim.pois.2018))
+SimResultspois.2018.tidy &amp;lt;- gather(SimResultspois.2018,&amp;quot;Team&amp;quot;, &amp;quot;Position&amp;quot;, -simNumber)
+
+
+#create ordered factor to order graph
+SimResultspois.2018.tidy$Team &amp;lt;- factor(SimResultspois.2018.tidy$Team, levels = Finalsimtablepois.2018$Team)
+
+#create graph 
+ggplot(SimResultspois.2018.tidy, aes(x = Team, y = Position)) + 
+  geom_violin(aes(fill = Team, col = Team), trim = TRUE, kernel = &amp;quot;gaussian&amp;quot;, adjust = 3) + 
+  stat_summary(fun.y=median, geom=&amp;quot;point&amp;quot;, size=4, color=&amp;quot;black&amp;quot;, shape = 0) +
+  stat_summary(fun.y=mean, geom=&amp;quot;point&amp;quot;, size=3, color=&amp;quot;black&amp;quot;, shape = 2) +
+  stat_summary(fun.y=Mode, geom=&amp;quot;point&amp;quot;, size=1, color=&amp;quot;black&amp;quot;, shape = 19) +
+  coord_flip(ylim = c(1,18)) +
+  scale_y_continuous(breaks = 1:18, labels = 1:18) +
+  theme(legend.position = &amp;quot;none&amp;quot;, panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank()) &lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/graphs-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;###GRAPH FOR NORM MODEL###
+
+#transpose data to tidy form for use in ggplot
+SimResultsnorm.2018$simNumber &amp;lt;- sprintf(&amp;quot;sim%d&amp;quot;, seq(1:Nsim.norm.2018))
+SimResultsnorm.2018.tidy &amp;lt;- gather(SimResultsnorm.2018,&amp;quot;Team&amp;quot;, &amp;quot;Position&amp;quot;, -simNumber)
+
+#create ordered factor to order graph
+SimResultsnorm.2018.tidy$Team &amp;lt;- factor(SimResultsnorm.2018.tidy$Team, levels = Finalsimtablenorm.2018$Team)
+
+#create graph 
+ggplot(SimResultsnorm.2018.tidy, aes(x = Team, y = Position)) + 
+  geom_violin(aes(fill = Team, col = Team), trim = TRUE, kernel = &amp;quot;gaussian&amp;quot;, adjust = 3) + 
+  stat_summary(fun.y=median, geom=&amp;quot;point&amp;quot;, size=4, color=&amp;quot;black&amp;quot;, shape = 0) +
+  stat_summary(fun.y=mean, geom=&amp;quot;point&amp;quot;, size=3, color=&amp;quot;black&amp;quot;, shape = 2) +
+  stat_summary(fun.y=Mode, geom=&amp;quot;point&amp;quot;, size=1, color=&amp;quot;black&amp;quot;, shape = 19) +
+  coord_flip(ylim = c(1,18)) +
+  scale_y_continuous(breaks = 1:18, labels = 1:18) +
+  theme(legend.position = &amp;quot;none&amp;quot;, panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank()) &lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/graphs-2.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;## create comparison graphs ##
+
+#combine two graphs##
+Finalsimtablenorm.2018$Model &amp;lt;- &amp;quot;norm&amp;quot;
+Finalsimtablepois.2018$Model &amp;lt;- &amp;quot;pois&amp;quot;
+Finalsimlist.2018[[20]]$Model &amp;lt;- &amp;quot;tanh&amp;quot;
+
+comparisonSimTable.2018 &amp;lt;- rbind(Finalsimtablenorm.2018, Finalsimtablepois.2018, Finalsimlist.2018[[20]])
+comparisonSimTable.2018$Model &amp;lt;- factor(comparisonSimTable.2018$Model)
+
+# create tidy data to compare a lot in one go
+comparisonSimTable.2018.tidy &amp;lt;- gather(comparisonSimTable.2018, &amp;quot;Type&amp;quot;, &amp;quot;Percent&amp;quot;, 6:10)
+comparisonSimTable.2018.tidy &lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##                       Team MedianPos MeanPos BestPos WorstPos Model
+## 1                Melbourne       2.0     2.2       1        5  norm
+## 2                 Richmond       2.0     2.3       1        6  norm
+## 3              Collingwood       3.0     2.8       1        5  norm
+## 4               West Coast       4.0     3.7       2        6  norm
+## 5                  Geelong       5.0     4.8       2        7  norm
+## 6                 Hawthorn       6.0     6.0       4       10  norm
+## 7          North Melbourne       8.0     7.7       6       10  norm
+## 8   Greater Western Sydney       8.0     8.3       7       11  norm
+## 9            Port Adelaide       9.5     9.4       7       12  norm
+## 10                  Sydney       9.5     9.5       7       13  norm
+## 11                Adelaide      11.0    10.5       5       12  norm
+## 12                Essendon      11.0    10.9       9       12  norm
+## 13               Fremantle      13.5    13.4      12       14  norm
+## 14          Brisbane Lions      13.5    13.5      13       14  norm
+## 15        Western Bulldogs      15.0    15.5      15       17  norm
+## 16                St Kilda      16.0    15.7      15       17  norm
+## 17                 Carlton      17.0    17.0      16       18  norm
+## 18              Gold Coast      18.0    17.8      17       18  norm
+## 19               Melbourne       2.0     2.2       1        5  pois
+## 20                Richmond       2.0     2.3       1        6  pois
+## 21             Collingwood       3.0     2.8       1        5  pois
+## 22              West Coast       4.0     3.7       2        6  pois
+## 23                 Geelong       5.0     4.8       2        7  pois
+## 24                Hawthorn       6.0     6.0       4       10  pois
+## 25         North Melbourne       8.0     7.7       6       10  pois
+## 26  Greater Western Sydney       8.0     8.3       7       11  pois
+## 27           Port Adelaide       9.5     9.4       7       12  pois
+## 28                  Sydney       9.5     9.5       7       13  pois
+## 29                Adelaide      11.0    10.5       5       12  pois
+## 30                Essendon      11.0    10.9       9       12  pois
+## 31               Fremantle      13.5    13.4      12       14  pois
+## 32          Brisbane Lions      13.5    13.5      13       14  pois
+## 33        Western Bulldogs      15.0    15.5      15       17  pois
+## 34                St Kilda      16.0    15.7      15       17  pois
+## 35                 Carlton      17.0    17.0      16       18  pois
+## 36              Gold Coast      18.0    17.8      17       18  pois
+## 37                Richmond       3.5     3.8       1        8  tanh
+## 38               Melbourne       3.5     5.1       1       13  tanh
+## 39             Collingwood       4.0     4.4       1       13  tanh
+## 40                Hawthorn       4.5     4.7       2        9  tanh
+## 41              West Coast       4.5     5.0       1       11  tanh
+## 42           Port Adelaide       6.5     7.0       2       15  tanh
+## 43  Greater Western Sydney       6.5     7.1       2       12  tanh
+## 44                  Sydney       7.0     8.0       2       15  tanh
+## 45         North Melbourne       9.5     8.9       3       14  tanh
+## 46                 Geelong       9.5     9.7       3       16  tanh
+## 47                Essendon      11.0    11.4       6       18  tanh
+## 48               Fremantle      12.0    11.0       4       16  tanh
+## 49                Adelaide      13.0    13.0       9       18  tanh
+## 50        Western Bulldogs      14.0    12.0       3       17  tanh
+## 51                 Carlton      14.0    14.1      10       18  tanh
+## 52          Brisbane Lions      14.5    14.3      11       18  tanh
+## 53                St Kilda      16.5    15.3       8       18  tanh
+## 54              Gold Coast      17.0    16.2      10       18  tanh
+## 55               Melbourne       2.0     2.2       1        5  norm
+## 56                Richmond       2.0     2.3       1        6  norm
+## 57             Collingwood       3.0     2.8       1        5  norm
+## 58              West Coast       4.0     3.7       2        6  norm
+## 59                 Geelong       5.0     4.8       2        7  norm
+## 60                Hawthorn       6.0     6.0       4       10  norm
+## 61         North Melbourne       8.0     7.7       6       10  norm
+## 62  Greater Western Sydney       8.0     8.3       7       11  norm
+## 63           Port Adelaide       9.5     9.4       7       12  norm
+## 64                  Sydney       9.5     9.5       7       13  norm
+## 65                Adelaide      11.0    10.5       5       12  norm
+## 66                Essendon      11.0    10.9       9       12  norm
+## 67               Fremantle      13.5    13.4      12       14  norm
+## 68          Brisbane Lions      13.5    13.5      13       14  norm
+## 69        Western Bulldogs      15.0    15.5      15       17  norm
+## 70                St Kilda      16.0    15.7      15       17  norm
+## 71                 Carlton      17.0    17.0      16       18  norm
+## 72              Gold Coast      18.0    17.8      17       18  norm
+## 73               Melbourne       2.0     2.2       1        5  pois
+## 74                Richmond       2.0     2.3       1        6  pois
+## 75             Collingwood       3.0     2.8       1        5  pois
+## 76              West Coast       4.0     3.7       2        6  pois
+## 77                 Geelong       5.0     4.8       2        7  pois
+## 78                Hawthorn       6.0     6.0       4       10  pois
+## 79         North Melbourne       8.0     7.7       6       10  pois
+## 80  Greater Western Sydney       8.0     8.3       7       11  pois
+## 81           Port Adelaide       9.5     9.4       7       12  pois
+## 82                  Sydney       9.5     9.5       7       13  pois
+## 83                Adelaide      11.0    10.5       5       12  pois
+## 84                Essendon      11.0    10.9       9       12  pois
+## 85               Fremantle      13.5    13.4      12       14  pois
+## 86          Brisbane Lions      13.5    13.5      13       14  pois
+## 87        Western Bulldogs      15.0    15.5      15       17  pois
+## 88                St Kilda      16.0    15.7      15       17  pois
+## 89                 Carlton      17.0    17.0      16       18  pois
+## 90              Gold Coast      18.0    17.8      17       18  pois
+## 91                Richmond       3.5     3.8       1        8  tanh
+## 92               Melbourne       3.5     5.1       1       13  tanh
+## 93             Collingwood       4.0     4.4       1       13  tanh
+## 94                Hawthorn       4.5     4.7       2        9  tanh
+## 95              West Coast       4.5     5.0       1       11  tanh
+## 96           Port Adelaide       6.5     7.0       2       15  tanh
+## 97  Greater Western Sydney       6.5     7.1       2       12  tanh
+## 98                  Sydney       7.0     8.0       2       15  tanh
+## 99         North Melbourne       9.5     8.9       3       14  tanh
+## 100                Geelong       9.5     9.7       3       16  tanh
+## 101               Essendon      11.0    11.4       6       18  tanh
+## 102              Fremantle      12.0    11.0       4       16  tanh
+## 103               Adelaide      13.0    13.0       9       18  tanh
+## 104       Western Bulldogs      14.0    12.0       3       17  tanh
+## 105                Carlton      14.0    14.1      10       18  tanh
+## 106         Brisbane Lions      14.5    14.3      11       18  tanh
+## 107               St Kilda      16.5    15.3       8       18  tanh
+## 108             Gold Coast      17.0    16.2      10       18  tanh
+## 109              Melbourne       2.0     2.2       1        5  norm
+## 110               Richmond       2.0     2.3       1        6  norm
+## 111            Collingwood       3.0     2.8       1        5  norm
+## 112             West Coast       4.0     3.7       2        6  norm
+## 113                Geelong       5.0     4.8       2        7  norm
+## 114               Hawthorn       6.0     6.0       4       10  norm
+## 115        North Melbourne       8.0     7.7       6       10  norm
+## 116 Greater Western Sydney       8.0     8.3       7       11  norm
+## 117          Port Adelaide       9.5     9.4       7       12  norm
+## 118                 Sydney       9.5     9.5       7       13  norm
+## 119               Adelaide      11.0    10.5       5       12  norm
+## 120               Essendon      11.0    10.9       9       12  norm
+## 121              Fremantle      13.5    13.4      12       14  norm
+## 122         Brisbane Lions      13.5    13.5      13       14  norm
+## 123       Western Bulldogs      15.0    15.5      15       17  norm
+## 124               St Kilda      16.0    15.7      15       17  norm
+## 125                Carlton      17.0    17.0      16       18  norm
+## 126             Gold Coast      18.0    17.8      17       18  norm
+## 127              Melbourne       2.0     2.2       1        5  pois
+## 128               Richmond       2.0     2.3       1        6  pois
+## 129            Collingwood       3.0     2.8       1        5  pois
+## 130             West Coast       4.0     3.7       2        6  pois
+## 131                Geelong       5.0     4.8       2        7  pois
+## 132               Hawthorn       6.0     6.0       4       10  pois
+## 133        North Melbourne       8.0     7.7       6       10  pois
+## 134 Greater Western Sydney       8.0     8.3       7       11  pois
+## 135          Port Adelaide       9.5     9.4       7       12  pois
+## 136                 Sydney       9.5     9.5       7       13  pois
+## 137               Adelaide      11.0    10.5       5       12  pois
+## 138               Essendon      11.0    10.9       9       12  pois
+## 139              Fremantle      13.5    13.4      12       14  pois
+## 140         Brisbane Lions      13.5    13.5      13       14  pois
+## 141       Western Bulldogs      15.0    15.5      15       17  pois
+## 142               St Kilda      16.0    15.7      15       17  pois
+## 143                Carlton      17.0    17.0      16       18  pois
+## 144             Gold Coast      18.0    17.8      17       18  pois
+## 145               Richmond       3.5     3.8       1        8  tanh
+## 146              Melbourne       3.5     5.1       1       13  tanh
+## 147            Collingwood       4.0     4.4       1       13  tanh
+## 148               Hawthorn       4.5     4.7       2        9  tanh
+## 149             West Coast       4.5     5.0       1       11  tanh
+## 150          Port Adelaide       6.5     7.0       2       15  tanh
+## 151 Greater Western Sydney       6.5     7.1       2       12  tanh
+## 152                 Sydney       7.0     8.0       2       15  tanh
+## 153        North Melbourne       9.5     8.9       3       14  tanh
+## 154                Geelong       9.5     9.7       3       16  tanh
+## 155               Essendon      11.0    11.4       6       18  tanh
+## 156              Fremantle      12.0    11.0       4       16  tanh
+## 157               Adelaide      13.0    13.0       9       18  tanh
+## 158       Western Bulldogs      14.0    12.0       3       17  tanh
+## 159                Carlton      14.0    14.1      10       18  tanh
+## 160         Brisbane Lions      14.5    14.3      11       18  tanh
+## 161               St Kilda      16.5    15.3       8       18  tanh
+## 162             Gold Coast      17.0    16.2      10       18  tanh
+## 163              Melbourne       2.0     2.2       1        5  norm
+## 164               Richmond       2.0     2.3       1        6  norm
+## 165            Collingwood       3.0     2.8       1        5  norm
+## 166             West Coast       4.0     3.7       2        6  norm
+## 167                Geelong       5.0     4.8       2        7  norm
+## 168               Hawthorn       6.0     6.0       4       10  norm
+## 169        North Melbourne       8.0     7.7       6       10  norm
+## 170 Greater Western Sydney       8.0     8.3       7       11  norm
+## 171          Port Adelaide       9.5     9.4       7       12  norm
+## 172                 Sydney       9.5     9.5       7       13  norm
+## 173               Adelaide      11.0    10.5       5       12  norm
+## 174               Essendon      11.0    10.9       9       12  norm
+## 175              Fremantle      13.5    13.4      12       14  norm
+## 176         Brisbane Lions      13.5    13.5      13       14  norm
+## 177       Western Bulldogs      15.0    15.5      15       17  norm
+## 178               St Kilda      16.0    15.7      15       17  norm
+## 179                Carlton      17.0    17.0      16       18  norm
+## 180             Gold Coast      18.0    17.8      17       18  norm
+## 181              Melbourne       2.0     2.2       1        5  pois
+## 182               Richmond       2.0     2.3       1        6  pois
+## 183            Collingwood       3.0     2.8       1        5  pois
+## 184             West Coast       4.0     3.7       2        6  pois
+## 185                Geelong       5.0     4.8       2        7  pois
+## 186               Hawthorn       6.0     6.0       4       10  pois
+## 187        North Melbourne       8.0     7.7       6       10  pois
+## 188 Greater Western Sydney       8.0     8.3       7       11  pois
+## 189          Port Adelaide       9.5     9.4       7       12  pois
+## 190                 Sydney       9.5     9.5       7       13  pois
+## 191               Adelaide      11.0    10.5       5       12  pois
+## 192               Essendon      11.0    10.9       9       12  pois
+## 193              Fremantle      13.5    13.4      12       14  pois
+## 194         Brisbane Lions      13.5    13.5      13       14  pois
+## 195       Western Bulldogs      15.0    15.5      15       17  pois
+## 196               St Kilda      16.0    15.7      15       17  pois
+## 197                Carlton      17.0    17.0      16       18  pois
+## 198             Gold Coast      18.0    17.8      17       18  pois
+## 199               Richmond       3.5     3.8       1        8  tanh
+## 200              Melbourne       3.5     5.1       1       13  tanh
+## 201            Collingwood       4.0     4.4       1       13  tanh
+## 202               Hawthorn       4.5     4.7       2        9  tanh
+## 203             West Coast       4.5     5.0       1       11  tanh
+## 204          Port Adelaide       6.5     7.0       2       15  tanh
+## 205 Greater Western Sydney       6.5     7.1       2       12  tanh
+## 206                 Sydney       7.0     8.0       2       15  tanh
+## 207        North Melbourne       9.5     8.9       3       14  tanh
+## 208                Geelong       9.5     9.7       3       16  tanh
+## 209               Essendon      11.0    11.4       6       18  tanh
+## 210              Fremantle      12.0    11.0       4       16  tanh
+## 211               Adelaide      13.0    13.0       9       18  tanh
+## 212       Western Bulldogs      14.0    12.0       3       17  tanh
+## 213                Carlton      14.0    14.1      10       18  tanh
+## 214         Brisbane Lions      14.5    14.3      11       18  tanh
+## 215               St Kilda      16.5    15.3       8       18  tanh
+## 216             Gold Coast      17.0    16.2      10       18  tanh
+## 217              Melbourne       2.0     2.2       1        5  norm
+## 218               Richmond       2.0     2.3       1        6  norm
+## 219            Collingwood       3.0     2.8       1        5  norm
+## 220             West Coast       4.0     3.7       2        6  norm
+## 221                Geelong       5.0     4.8       2        7  norm
+## 222               Hawthorn       6.0     6.0       4       10  norm
+## 223        North Melbourne       8.0     7.7       6       10  norm
+## 224 Greater Western Sydney       8.0     8.3       7       11  norm
+## 225          Port Adelaide       9.5     9.4       7       12  norm
+## 226                 Sydney       9.5     9.5       7       13  norm
+## 227               Adelaide      11.0    10.5       5       12  norm
+## 228               Essendon      11.0    10.9       9       12  norm
+## 229              Fremantle      13.5    13.4      12       14  norm
+## 230         Brisbane Lions      13.5    13.5      13       14  norm
+## 231       Western Bulldogs      15.0    15.5      15       17  norm
+## 232               St Kilda      16.0    15.7      15       17  norm
+## 233                Carlton      17.0    17.0      16       18  norm
+## 234             Gold Coast      18.0    17.8      17       18  norm
+## 235              Melbourne       2.0     2.2       1        5  pois
+## 236               Richmond       2.0     2.3       1        6  pois
+## 237            Collingwood       3.0     2.8       1        5  pois
+## 238             West Coast       4.0     3.7       2        6  pois
+## 239                Geelong       5.0     4.8       2        7  pois
+## 240               Hawthorn       6.0     6.0       4       10  pois
+## 241        North Melbourne       8.0     7.7       6       10  pois
+## 242 Greater Western Sydney       8.0     8.3       7       11  pois
+## 243          Port Adelaide       9.5     9.4       7       12  pois
+## 244                 Sydney       9.5     9.5       7       13  pois
+## 245               Adelaide      11.0    10.5       5       12  pois
+## 246               Essendon      11.0    10.9       9       12  pois
+## 247              Fremantle      13.5    13.4      12       14  pois
+## 248         Brisbane Lions      13.5    13.5      13       14  pois
+## 249       Western Bulldogs      15.0    15.5      15       17  pois
+## 250               St Kilda      16.0    15.7      15       17  pois
+## 251                Carlton      17.0    17.0      16       18  pois
+## 252             Gold Coast      18.0    17.8      17       18  pois
+## 253               Richmond       3.5     3.8       1        8  tanh
+## 254              Melbourne       3.5     5.1       1       13  tanh
+## 255            Collingwood       4.0     4.4       1       13  tanh
+## 256               Hawthorn       4.5     4.7       2        9  tanh
+## 257             West Coast       4.5     5.0       1       11  tanh
+## 258          Port Adelaide       6.5     7.0       2       15  tanh
+## 259 Greater Western Sydney       6.5     7.1       2       12  tanh
+## 260                 Sydney       7.0     8.0       2       15  tanh
+## 261        North Melbourne       9.5     8.9       3       14  tanh
+## 262                Geelong       9.5     9.7       3       16  tanh
+## 263               Essendon      11.0    11.4       6       18  tanh
+## 264              Fremantle      12.0    11.0       4       16  tanh
+## 265               Adelaide      13.0    13.0       9       18  tanh
+## 266       Western Bulldogs      14.0    12.0       3       17  tanh
+## 267                Carlton      14.0    14.1      10       18  tanh
+## 268         Brisbane Lions      14.5    14.3      11       18  tanh
+## 269               St Kilda      16.5    15.3       8       18  tanh
+## 270             Gold Coast      17.0    16.2      10       18  tanh
+##               Type Percent
+## 1       percentWon      30
+## 2       percentWon      40
+## 3       percentWon      30
+## 4       percentWon       0
+## 5       percentWon       0
+## 6       percentWon       0
+## 7       percentWon       0
+## 8       percentWon       0
+## 9       percentWon       0
+## 10      percentWon       0
+## 11      percentWon       0
+## 12      percentWon       0
+## 13      percentWon       0
+## 14      percentWon       0
+## 15      percentWon       0
+## 16      percentWon       0
+## 17      percentWon       0
+## 18      percentWon       0
+## 19      percentWon      30
+## 20      percentWon      40
+## 21      percentWon      30
+## 22      percentWon       0
+## 23      percentWon       0
+## 24      percentWon       0
+## 25      percentWon       0
+## 26      percentWon       0
+## 27      percentWon       0
+## 28      percentWon       0
+## 29      percentWon       0
+## 30      percentWon       0
+## 31      percentWon       0
+## 32      percentWon       0
+## 33      percentWon       0
+## 34      percentWon       0
+## 35      percentWon       0
+## 36      percentWon       0
+## 37      percentWon      30
+## 38      percentWon      20
+## 39      percentWon      20
+## 40      percentWon       0
+## 41      percentWon      30
+## 42      percentWon       0
+## 43      percentWon       0
+## 44      percentWon       0
+## 45      percentWon       0
+## 46      percentWon       0
+## 47      percentWon       0
+## 48      percentWon       0
+## 49      percentWon       0
+## 50      percentWon       0
+## 51      percentWon       0
+## 52      percentWon       0
+## 53      percentWon       0
+## 54      percentWon       0
+## 55     percentTop4      90
+## 56     percentTop4      90
+## 57     percentTop4      90
+## 58     percentTop4      80
+## 59     percentTop4      30
+## 60     percentTop4      20
+## 61     percentTop4       0
+## 62     percentTop4       0
+## 63     percentTop4       0
+## 64     percentTop4       0
+## 65     percentTop4       0
+## 66     percentTop4       0
+## 67     percentTop4       0
+## 68     percentTop4       0
+## 69     percentTop4       0
+## 70     percentTop4       0
+## 71     percentTop4       0
+## 72     percentTop4       0
+## 73     percentTop4      90
+## 74     percentTop4      90
+## 75     percentTop4      90
+## 76     percentTop4      80
+## 77     percentTop4      30
+## 78     percentTop4      20
+## 79     percentTop4       0
+## 80     percentTop4       0
+## 81     percentTop4       0
+## 82     percentTop4       0
+## 83     percentTop4       0
+## 84     percentTop4       0
+## 85     percentTop4       0
+## 86     percentTop4       0
+## 87     percentTop4       0
+## 88     percentTop4       0
+## 89     percentTop4       0
+## 90     percentTop4       0
+## 91     percentTop4      50
+## 92     percentTop4      70
+## 93     percentTop4      80
+## 94     percentTop4      50
+## 95     percentTop4      50
+## 96     percentTop4      30
+## 97     percentTop4      20
+## 98     percentTop4      10
+## 99     percentTop4      10
+## 100    percentTop4      10
+## 101    percentTop4       0
+## 102    percentTop4      10
+## 103    percentTop4       0
+## 104    percentTop4      10
+## 105    percentTop4       0
+## 106    percentTop4       0
+## 107    percentTop4       0
+## 108    percentTop4       0
+## 109    percentTop8     100
+## 110    percentTop8     100
+## 111    percentTop8     100
+## 112    percentTop8     100
+## 113    percentTop8     100
+## 114    percentTop8      90
+## 115    percentTop8      80
+## 116    percentTop8      60
+## 117    percentTop8      20
+## 118    percentTop8      40
+## 119    percentTop8      10
+## 120    percentTop8       0
+## 121    percentTop8       0
+## 122    percentTop8       0
+## 123    percentTop8       0
+## 124    percentTop8       0
+## 125    percentTop8       0
+## 126    percentTop8       0
+## 127    percentTop8     100
+## 128    percentTop8     100
+## 129    percentTop8     100
+## 130    percentTop8     100
+## 131    percentTop8     100
+## 132    percentTop8      90
+## 133    percentTop8      80
+## 134    percentTop8      60
+## 135    percentTop8      20
+## 136    percentTop8      40
+## 137    percentTop8      10
+## 138    percentTop8       0
+## 139    percentTop8       0
+## 140    percentTop8       0
+## 141    percentTop8       0
+## 142    percentTop8       0
+## 143    percentTop8       0
+## 144    percentTop8       0
+## 145    percentTop8     100
+## 146    percentTop8      70
+## 147    percentTop8      90
+## 148    percentTop8      90
+## 149    percentTop8      80
+## 150    percentTop8      70
+## 151    percentTop8      60
+## 152    percentTop8      70
+## 153    percentTop8      30
+## 154    percentTop8      40
+## 155    percentTop8      40
+## 156    percentTop8      20
+## 157    percentTop8       0
+## 158    percentTop8      30
+## 159    percentTop8       0
+## 160    percentTop8       0
+## 161    percentTop8      10
+## 162    percentTop8       0
+## 163 percentBottom4       0
+## 164 percentBottom4       0
+## 165 percentBottom4       0
+## 166 percentBottom4       0
+## 167 percentBottom4       0
+## 168 percentBottom4       0
+## 169 percentBottom4       0
+## 170 percentBottom4       0
+## 171 percentBottom4       0
+## 172 percentBottom4       0
+## 173 percentBottom4       0
+## 174 percentBottom4       0
+## 175 percentBottom4       0
+## 176 percentBottom4       0
+## 177 percentBottom4     100
+## 178 percentBottom4     100
+## 179 percentBottom4     100
+## 180 percentBottom4     100
+## 181 percentBottom4       0
+## 182 percentBottom4       0
+## 183 percentBottom4       0
+## 184 percentBottom4       0
+## 185 percentBottom4       0
+## 186 percentBottom4       0
+## 187 percentBottom4       0
+## 188 percentBottom4       0
+## 189 percentBottom4       0
+## 190 percentBottom4       0
+## 191 percentBottom4       0
+## 192 percentBottom4       0
+## 193 percentBottom4       0
+## 194 percentBottom4       0
+## 195 percentBottom4     100
+## 196 percentBottom4     100
+## 197 percentBottom4     100
+## 198 percentBottom4     100
+## 199 percentBottom4       0
+## 200 percentBottom4       0
+## 201 percentBottom4       0
+## 202 percentBottom4       0
+## 203 percentBottom4       0
+## 204 percentBottom4      10
+## 205 percentBottom4       0
+## 206 percentBottom4      10
+## 207 percentBottom4       0
+## 208 percentBottom4      20
+## 209 percentBottom4      30
+## 210 percentBottom4      10
+## 211 percentBottom4      30
+## 212 percentBottom4      50
+## 213 percentBottom4      50
+## 214 percentBottom4      50
+## 215 percentBottom4      60
+## 216 percentBottom4      80
+## 217    percentLast       0
+## 218    percentLast       0
+## 219    percentLast       0
+## 220    percentLast       0
+## 221    percentLast       0
+## 222    percentLast       0
+## 223    percentLast       0
+## 224    percentLast       0
+## 225    percentLast       0
+## 226    percentLast       0
+## 227    percentLast       0
+## 228    percentLast       0
+## 229    percentLast       0
+## 230    percentLast       0
+## 231    percentLast       0
+## 232    percentLast       0
+## 233    percentLast      20
+## 234    percentLast      80
+## 235    percentLast       0
+## 236    percentLast       0
+## 237    percentLast       0
+## 238    percentLast       0
+## 239    percentLast       0
+## 240    percentLast       0
+## 241    percentLast       0
+## 242    percentLast       0
+## 243    percentLast       0
+## 244    percentLast       0
+## 245    percentLast       0
+## 246    percentLast       0
+## 247    percentLast       0
+## 248    percentLast       0
+## 249    percentLast       0
+## 250    percentLast       0
+## 251    percentLast      20
+## 252    percentLast      80
+## 253    percentLast       0
+## 254    percentLast       0
+## 255    percentLast       0
+## 256    percentLast       0
+## 257    percentLast       0
+## 258    percentLast       0
+## 259    percentLast       0
+## 260    percentLast       0
+## 261    percentLast       0
+## 262    percentLast       0
+## 263    percentLast      10
+## 264    percentLast       0
+## 265    percentLast      10
+## 266    percentLast       0
+## 267    percentLast      10
+## 268    percentLast      10
+## 269    percentLast      30
+## 270    percentLast      30&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;#create ordered factor to order graph
+comparisonSimTable.2018.tidy$Team &amp;lt;- factor(comparisonSimTable.2018.tidy$Team, levels = Finalsimtablepois.2018$Team)
+
+#create ordered factor of &amp;#39;Type&amp;#39; to order facet
+comparisonSimTable.2018.tidy$Type &amp;lt;- factor(comparisonSimTable.2018.tidy$Type, 
+                                       levels = c(&amp;quot;percentWon&amp;quot;, &amp;quot;percentTop4&amp;quot;, &amp;quot;percentTop8&amp;quot;,
+                                                  &amp;quot;percentBottom4&amp;quot;, &amp;quot;percentLast&amp;quot;))
+
+#draw graphs
+ggplot(comparisonSimTable.2018, aes(x = Team, y = percentWon, fill = Model)) + 
+  geom_bar(stat = &amp;quot;identity&amp;quot;, position = &amp;#39;dodge&amp;#39;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/graphs-3.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;ggplot(comparisonSimTable.2018, aes(x = Team, y = percentTop8, fill = Model)) +
+  geom_bar(stat = &amp;quot;identity&amp;quot;, position = &amp;#39;dodge&amp;#39;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/graphs-4.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;ggplot(comparisonSimTable.2018.tidy, aes(x = Team, y = Percent, fill = Model)) + 
+  geom_bar(stat = &amp;quot;identity&amp;quot;, position = &amp;#39;dodge&amp;#39;) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6)) +
+  facet_wrap(~Type, nrow = 1)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/graphs-5.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;## WHich of these two models best captures last years fnal table.
+# Personally, I think the normal distribution model is by far the best of these two, It alligns with the variable nature of afl football and gives more beleiveable results.
+# It also allows for teams which footy intution says have a chance of winning the cup to win the cup. # but lets see which dataset best comports with last years data. 
+# lets import last years finaltable data.  
+#also note that comparing with last year isnt the  best method, because we have a different fixture (unlike football in the UK everyteam does not play eachother twice )&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Example Page</title>
+      <link>/tutorial/example/</link>
+      <pubDate>Sun, 09 Sep 2018 00:00:00 +1000</pubDate>
+      
+      <guid>/tutorial/example/</guid>
+      <description>
+
+&lt;p&gt;In this tutorial, I&amp;rsquo;ll share my top 10 tips for getting started with Academic:&lt;/p&gt;
+
+&lt;h2 id=&#34;tip-1&#34;&gt;Tip 1&lt;/h2&gt;
+
+&lt;p&gt;&amp;hellip;&lt;/p&gt;
+
+&lt;h2 id=&#34;tip-2&#34;&gt;Tip 2&lt;/h2&gt;
+
+&lt;p&gt;&amp;hellip;&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Privacy Policy</title>
+      <link>/privacy/</link>
+      <pubDate>Thu, 28 Jun 2018 00:00:00 +1000</pubDate>
+      
+      <guid>/privacy/</guid>
+      <description>&lt;p&gt;&amp;hellip;&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>External Project</title>
+      <link>/project/external-project/</link>
+      <pubDate>Wed, 27 Apr 2016 00:00:00 +1000</pubDate>
+      
+      <guid>/project/external-project/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Internal Project</title>
+      <link>/project/internal-project/</link>
+      <pubDate>Wed, 27 Apr 2016 00:00:00 +1000</pubDate>
+      
+      <guid>/project/internal-project/</guid>
+      <description>&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis posuere tellus ac convallis placerat. Proin tincidunt magna sed ex sollicitudin condimentum. Sed ac faucibus dolor, scelerisque sollicitudin nisi. Cras purus urna, suscipit quis sapien eu, pulvinar tempor diam. Quisque risus orci, mollis id ante sit amet, gravida egestas nisl. Sed ac tempus magna. Proin in dui enim. Donec condimentum, sem id dapibus fringilla, tellus enim condimentum arcu, nec volutpat est felis vel metus. Vestibulum sit amet erat at nulla eleifend gravida.&lt;/p&gt;
+
+&lt;p&gt;Nullam vel molestie justo. Curabitur vitae efficitur leo. In hac habitasse platea dictumst. Sed pulvinar mauris dui, eget varius purus congue ac. Nulla euismod, lorem vel elementum dapibus, nunc justo porta mi, sed tempus est est vel tellus. Nam et enim eleifend, laoreet sem sit amet, elementum sem. Morbi ut leo congue, maximus velit ut, finibus arcu. In et libero cursus, rutrum risus non, molestie leo. Nullam congue quam et volutpat malesuada. Sed risus tortor, pulvinar et dictum nec, sodales non mi. Phasellus lacinia commodo laoreet. Nam mollis, erat in feugiat consectetur, purus eros egestas tellus, in auctor urna odio at nibh. Mauris imperdiet nisi ac magna convallis, at rhoncus ligula cursus.&lt;/p&gt;
+
+&lt;p&gt;Cras aliquam rhoncus ipsum, in hendrerit nunc mattis vitae. Duis vitae efficitur metus, ac tempus leo. Cras nec fringilla lacus. Quisque sit amet risus at ipsum pharetra commodo. Sed aliquam mauris at consequat eleifend. Praesent porta, augue sed viverra bibendum, neque ante euismod ante, in vehicula justo lorem ac eros. Suspendisse augue libero, venenatis eget tincidunt ut, malesuada at lorem. Donec vitae bibendum arcu. Aenean maximus nulla non pretium iaculis. Quisque imperdiet, nulla in pulvinar aliquet, velit quam ultrices quam, sit amet fringilla leo sem vel nunc. Mauris in lacinia lacus.&lt;/p&gt;
+
+&lt;p&gt;Suspendisse a tincidunt lacus. Curabitur at urna sagittis, dictum ante sit amet, euismod magna. Sed rutrum massa id tortor commodo, vitae elementum turpis tempus. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean purus turpis, venenatis a ullamcorper nec, tincidunt et massa. Integer posuere quam rutrum arcu vehicula imperdiet. Mauris ullamcorper quam vitae purus congue, quis euismod magna eleifend. Vestibulum semper vel augue eget tincidunt. Fusce eget justo sodales, dapibus odio eu, ultrices lorem. Duis condimentum lorem id eros commodo, in facilisis mauris scelerisque. Morbi sed auctor leo. Nullam volutpat a lacus quis pharetra. Nulla congue rutrum magna a ornare.&lt;/p&gt;
+
+&lt;p&gt;Aliquam in turpis accumsan, malesuada nibh ut, hendrerit justo. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Quisque sed erat nec justo posuere suscipit. Donec ut efficitur arcu, in malesuada neque. Nunc dignissim nisl massa, id vulputate nunc pretium nec. Quisque eget urna in risus suscipit ultricies. Pellentesque odio odio, tincidunt in eleifend sed, posuere a diam. Nam gravida nisl convallis semper elementum. Morbi vitae felis faucibus, vulputate orci placerat, aliquet nisi. Aliquam erat volutpat. Maecenas sagittis pulvinar purus, sed porta quam laoreet at.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>A Person Re-Identification System For Mobile Devices</title>
+      <link>/publication/person-re-id/</link>
+      <pubDate>Tue, 01 Sep 2015 00:00:00 +1000</pubDate>
+      
+      <guid>/publication/person-re-id/</guid>
+      <description>&lt;p&gt;More detail can easily be written here using &lt;em&gt;Markdown&lt;/em&gt; and $\rm \LaTeX$ math code.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Mobile visual clothing search</title>
+      <link>/publication/clothing-search/</link>
+      <pubDate>Mon, 01 Jul 2013 00:00:00 +1000</pubDate>
+      
+      <guid>/publication/clothing-search/</guid>
+      <description>&lt;p&gt;More detail can easily be written here using &lt;em&gt;Markdown&lt;/em&gt; and $\rm \LaTeX$ math code.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Slides</title>
+      <link>/slides/example-slides/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>/slides/example-slides/</guid>
+      <description>
+
+&lt;h1 id=&#34;welcome-to-slides&#34;&gt;Welcome to Slides&lt;/h1&gt;
+
+&lt;p&gt;&lt;a href=&#34;https://sourcethemes.com/academic/&#34; target=&#34;_blank&#34;&gt;Academic&lt;/a&gt;&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&#34;features&#34;&gt;Features&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Efficiently write slides in Markdown&lt;/li&gt;
+&lt;li&gt;3-in-1: Create, Present, and Publish your slides&lt;/li&gt;
+&lt;li&gt;Supports speaker notes&lt;/li&gt;
+&lt;li&gt;Mobile friendly slides&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&#34;controls&#34;&gt;Controls&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Next: &lt;code&gt;Right Arrow&lt;/code&gt; or &lt;code&gt;Space&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Previous: &lt;code&gt;Left Arrow&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Start: &lt;code&gt;Home&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Finish: &lt;code&gt;End&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Overview: &lt;code&gt;Esc&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Speaker notes: &lt;code&gt;S&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Fullscreen: &lt;code&gt;F&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Zoom: &lt;code&gt;Alt + Click&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/hakimel/reveal.js#pdf-export&#34; target=&#34;_blank&#34;&gt;PDF Export&lt;/a&gt;: &lt;code&gt;E&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&#34;code-highlighting&#34;&gt;Code Highlighting&lt;/h2&gt;
+
+&lt;p&gt;Inline code: &lt;code&gt;variable&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Code block:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;porridge = &amp;quot;blueberry&amp;quot;
+if porridge == &amp;quot;blueberry&amp;quot;:
+    print(&amp;quot;Eating...&amp;quot;)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&#34;math&#34;&gt;Math&lt;/h2&gt;
+
+&lt;p&gt;In-line math: $x + y = z$&lt;/p&gt;
+
+&lt;p&gt;Block math:&lt;/p&gt;
+
+&lt;p&gt;$$
+f\left( x \right) = \;\frac{{2\left( {x + 4} \right)\left( {x - 4} \right)}}{{\left( {x + 4} \right)\left( {x + 1} \right)}}
+$$&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&#34;fragments&#34;&gt;Fragments&lt;/h2&gt;
+
+&lt;p&gt;Make content appear incrementally&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;{{% fragment %}} One {{% /fragment %}}
+{{% fragment %}} **Two** {{% /fragment %}}
+{{% fragment %}} Three {{% /fragment %}}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Press &lt;code&gt;Space&lt;/code&gt; to play!&lt;/p&gt;
+
+&lt;p&gt;&lt;span class=&#34;fragment &#34; &gt;
+  One
+&lt;/span&gt;
+&lt;span class=&#34;fragment &#34; &gt;
+  &lt;strong&gt;Two&lt;/strong&gt;
+&lt;/span&gt;
+&lt;span class=&#34;fragment &#34; &gt;
+  Three
+&lt;/span&gt;&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;p&gt;A fragment can accept two optional parameters:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;class&lt;/code&gt;: use a custom style (requires definition in custom CSS)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;weight&lt;/code&gt;: sets the order in which a fragment appears&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&#34;speaker-notes&#34;&gt;Speaker Notes&lt;/h2&gt;
+
+&lt;p&gt;Add speaker notes to your presentation&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-markdown&#34;&gt;{{% speaker_note %}}
+- Only the speaker can read these notes
+- Press `S` key to view
+{{% /speaker_note %}}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Press the &lt;code&gt;S&lt;/code&gt; key to view the speaker notes!&lt;/p&gt;
+
+&lt;aside class=&#34;notes&#34;&gt;
+  &lt;ul&gt;
+&lt;li&gt;Only the speaker can read these notes&lt;/li&gt;
+&lt;li&gt;Press &lt;code&gt;S&lt;/code&gt; key to view&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;/aside&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&#34;themes&#34;&gt;Themes&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;black: Black background, white text, blue links (default)&lt;/li&gt;
+&lt;li&gt;white: White background, black text, blue links&lt;/li&gt;
+&lt;li&gt;league: Gray background, white text, blue links&lt;/li&gt;
+&lt;li&gt;beige: Beige background, dark text, brown links&lt;/li&gt;
+&lt;li&gt;sky: Blue background, thin dark text, blue links&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;hr /&gt;
+
+&lt;ul&gt;
+&lt;li&gt;night: Black background, thick white text, orange links&lt;/li&gt;
+&lt;li&gt;serif: Cappuccino background, gray text, brown links&lt;/li&gt;
+&lt;li&gt;simple: White background, black text, blue links&lt;/li&gt;
+&lt;li&gt;solarized: Cream-colored background, dark green text, blue links&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;hr /&gt;
+
+
+&lt;section data-noprocess data-shortcode-slide
+  
+      
+      data-background-image=&#34;/img/boards.jpg&#34;
+  &gt;
+
+
+&lt;h2 id=&#34;custom-slide&#34;&gt;Custom Slide&lt;/h2&gt;
+
+&lt;p&gt;Customize the slide style and background&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-markdown&#34;&gt;{{&amp;lt; slide background-image=&amp;quot;/img/boards.jpg&amp;quot; &amp;gt;}}
+{{&amp;lt; slide background-color=&amp;quot;#0000FF&amp;quot; &amp;gt;}}
+{{&amp;lt; slide class=&amp;quot;my-style&amp;quot; &amp;gt;}}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&#34;custom-css-example&#34;&gt;Custom CSS Example&lt;/h2&gt;
+
+&lt;p&gt;Let&amp;rsquo;s make headers navy colored.&lt;/p&gt;
+
+&lt;p&gt;Create &lt;code&gt;assets/css/reveal_custom.css&lt;/code&gt; with:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-css&#34;&gt;.reveal section h1,
+.reveal section h2,
+.reveal section h3 {
+  color: navy;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;hr /&gt;
+
+&lt;h1 id=&#34;questions&#34;&gt;Questions?&lt;/h1&gt;
+
+&lt;p&gt;&lt;a href=&#34;https://discourse.gohugo.io&#34; target=&#34;_blank&#34;&gt;Ask&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&#34;https://sourcethemes.com/academic/docs/&#34; target=&#34;_blank&#34;&gt;Documentation&lt;/a&gt;&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

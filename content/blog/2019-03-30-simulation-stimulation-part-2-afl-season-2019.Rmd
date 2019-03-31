@@ -1,0 +1,127 @@
+---
+title: 'Simulation Stimulation Part 2: AFL Season 2019'
+author: Joshua White
+date: '2019-03-30'
+slug: simulation-stimulation-part-2-afl-season-2019
+categories:
+  - R
+tags:
+  - AFL
+  - Simulations
+  - Sport
+image:
+  caption: ''
+  focal_point: ''
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("blogfiles/AFL-Sim/AFLsim2019.R")
+```
+
+In part one of this series, I applied three different models to the 2018 AFL season. In this part, I apply these models to the 2019 AFL fixture to attempt to make some predictions about the standings at the end of the year. 
+
+Now Ideally, I would have applied these models to the last 10 (or more) years of AFL data to see which one better predicts results for the upcoming year --- but who has time for that --- So we are just going to go ahead. 
+
+## The Models: A Reminder
+
+###Poisson Distributed Team Scores
+Here, each team's score in every game is modeled as a random drawing from a Poisson distribution --- i.e. $P(k) = e^{-\lambda} \frac{\lambda^k}{k!}$, where k is the number of points scored, and $\lambda$ is calculated as 
+
+$\lambda_{home team} =$ League Average points scored at home $\times$ home team attack strength at home $\times$ awayteam attack strength away
+
+$\lambda_{away team} =$ League Average points scored away $\times$ away team attack strength away $\times$ hometeam defense strength at home
+
+
+###Normally Distributed team scores
+This model assumes that team scores are normally distributed around $\lambda$ as defined above, with a standard deviation calculated as the pooled standard deviation of that teams 'for' scores standard deviation, and the opponents 'against' scores standard deviation:
+$$Points_{teamA} \sim \mathcal{N}(\mu=\lambda,\,\sigma = \sigma_p)\,$$ 
+where: <br>
+$$\sigma_{p}=\frac{\sigma_{teamAfor} + \sigma_{teamBagainst}}{2}$$
+
+###Rankings model: tanh
+This model simply relies on the ordinal data of last years final Ladder: Carlton, the wooden spoon winners (i.e. the last placeholders, out of 18 teams) get a ranking of 1, and Richmond, who finished on top of the table get a ranking of 18. Then, with this information, the probability of team A winning is modelled as follows:
+
+$$P(A\>wins)=\frac{tanh(\frac{a-b}{w} + d)+1}{2}$$
+where,<br>
+A = home team <br>
+a = home team ranking <br> 
+b = away team ranking <br>
+w = weighting parameter (the higher the number the less weight placed on the rankings) <br>
+d = draw paramater, to allow for possibility of draws, calculated as so that $tanh(d) = -draw\>rate$
+
+## 2019 Results
+
+###Poisson model
+```{r poisresults}
+Finalsimtablepois.2019
+pois2019graph
+```
+
+###Normal model
+```{r normresults}
+Finalsimtablenorm.2019
+norm2019graph
+```
+
+###Tanh model
+
+```{r tanhresults}
+Finalsimlist.2019[[20]] %>% tibble()
+tanh2019graph
+```
+
+
+##Comparing the three models.
+
+```{r comparing the models, eval=FALSE}
+
+#create table with different orders. 
+ordercomparison.2018 <- data.frame(Team = factor(finalTable2018$Team),
+                              Order2018 = 1:18,
+                              OrderNorm.2018 = match(finalTable2018$Team, Finalsimtablenorm.2018$Team),
+                              OrderPois.2018 = match(finalTable2018$Team, Finalsimtablepois.2018$Team),
+                              OrderTanh.2018 = match(finalTable2018$Team, Finalsimlist.2018[[20]]$Team)) 
+
+ordercomparison.2018 %>% tibble()
+
+#Let's now get the spearman's correlation coefficients and show that in a correlatin matrix
+cormatrix.2018 <- cor(ordercomparison.2018[,2:5], use = "all.obs", method = "spearman")
+ggcorrplot(cormatrix.2018, lab = TRUE)
+
+## create comparison graphs ##
+
+#combine two graphs##
+Finalsimtablenorm.2019$Model <- "norm"
+Finalsimtablepois.2019$Model <- "pois"
+Finalsimlist.2019[[20]]$Model <- "tanh"
+
+comparisonSimTable.2019 <- rbind(Finalsimtablenorm.2019, Finalsimtablepois.2019, Finalsimlist.2019[[20]])
+comparisonSimTable.2019$Model <- factor(comparisonSimTable.2019$Model)
+
+# create tidy data to compare a lot in one go
+comparisonSimTable.2019.tidy <- gather(comparisonSimTable.2019, "Type", "Percent", 6:10)
+comparisonSimTable.2019.tidy 
+
+#create ordered factor to order graph
+comparisonSimTable.2019.tidy$Team <- factor(comparisonSimTable.2019.tidy$Team, levels = Finalsimtablepois.2019$Team)
+
+#create ordered factor of 'Type' to order facet
+comparisonSimTable.2019.tidy$Type <- factor(comparisonSimTable.2019.tidy$Type, 
+                                       levels = c("percentWon", "percentTop4", "percentTop8",
+                                                  "percentBottom4", "percentLast"))
+
+#draw graphs
+ggplot(comparisonSimTable.2019, aes(x = Team, y = percentWon, fill = Model)) + 
+  geom_bar(stat = "identity", position = 'dodge')
+ggplot(comparisonSimTable.2019, aes(x = Team, y = percentTop8, fill = Model)) +
+  geom_bar(stat = "identity", position = 'dodge')
+
+ggplot(comparisonSimTable.2019.tidy, aes(x = Team, y = Percent, fill = Model)) + 
+  geom_bar(stat = "identity", position = 'dodge') + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6)) +
+  facet_wrap(~Type, nrow = 1)
+
+```

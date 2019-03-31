@@ -1,0 +1,15 @@
+# Font style metadata
+name = "Classic"
+
+# Optional Google font URL
+google_fonts = "Notable|Roboto:400,400italic,700|Roboto+Mono|Montserrat|Bowlby+One+SC|Russo+One"
+
+# Font families
+heading_font = "Russo One"
+body_font = "Roboto"
+nav_font = "Russo One"
+mono_font = "Roboto Mono"
+
+# Font size
+font_size = "20"
+font_size_small = "16"

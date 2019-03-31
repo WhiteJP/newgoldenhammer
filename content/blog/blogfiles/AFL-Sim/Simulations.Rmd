@@ -1,0 +1,459 @@
+---
+title: "AFL 2019 Simulations"
+author: "Joshua White"
+date: "9 March 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+library(readxl)
+library(tidyverse)
+library(purrr)
+
+loc <- here()
+setwd(loc)
+
+#load data
+HAinfo <- read_excel("HAinfo.xlsx", sheet = 4)
+View(HAinfo)
+
+names(HAinfo)[names(HAinfo) == 'Points'] <- 'For'
+
+fixture2019 <- read_excel("HAinfo.xlsx", sheet = 5)
+View(fixture2019)
+
+#separate home and away and impute points against
+Hpoints <- HAinfo[seq(1, nrow(HAinfo), 2),]
+Apoints <- HAinfo[seq(2, nrow(HAinfo), 2),]
+Hpoints$Against <- Apoints$For
+Apoints$Against <- Hpoints$For
+
+#join and make data tidy
+points <- rbind(Hpoints, Apoints)
+pointstidy <- points %>% gather("FororAgainst", "Points", -HorA, -Team)
+
+#get mean points and sd thereof by team, H and A, and fororagainst
+pointssummary <- pointstidy %>% group_by(HorA, Team, FororAgainst) %>%
+                                summarise(sd = sd(Points), Points = mean(Points)) %>%
+                                ungroup
+pointssummary <- pointssummary[, c(2,1,3,4,5)]
+pointssummary
+
+#average H or A
+Average <- pointssummary %>% group_by(HorA, FororAgainst) %>% summarise(Points = mean(Points)) 
+Homeaveragefor <- as.numeric(Average[4, 3])
+Homeaverageagainst <- as.numeric(Average[3, 3])
+Awayaveragefor <- as.numeric(Average[2, 3])
+Awayaverageagainst <- as.numeric(Average[1, 3])
+```
+
+## Simulating the AFL season 
+
+Recently I was, as I am (unfortuately) rather wont to do, aimlessly watching Youtube videos when I came across these [two](https://www.youtube.com/watch?v=Vv9wpQIGZDw) [videos](https://www.youtube.com/watch?v=Zs2M7gWSbTg). Here, the authors discuss their attempts at using mathematical models and computer simulations to answer interesting questions about the English Premier League. 
+
+As an avid AFL fan, and with the upcoming season fast approaching (edit, underway-- what better chance than now to . THis article will show in some detail my attempts, based upon the appraochesd used in the numberphile video, to answer this question. I make no promises about the beauty of the code I have ued below. In fact, I am sure there are many places where I could greatly increase the efficiency of the written code and it's speed (I have used a lot of for loops below, which I am aware, are generally not the best approach in R which is so heavily vectorised). Please let me have any suggestions on what I could have done better. But in the end, the result is all that matters. That aphorism that it is about the journey not the destination was a bunc of crap anyway (jk). Let's get rolling
+
+### MonteCarlo SImulation setup
+
+First, lets load some packages we are going to need. 
+
+```{r loadpakages, echo=FALSE, eval=FALSE}
+library(here)
+library(readxl)
+library(tidyverse)
+library(purrr)
+
+```
+
+
+OK, now lets get the data importing out of the way. For this model, there is only two bits of data I need: thescore data from each game played last year, and the fixures for the upcoming season. I found the former from <https://afltables.com/afl/seas/2018.html>, and the latter from <https://en.wikipedia.org/wiki/2019_AFL_season#Premiership_season>. After a copy/paste job and some cleadning of the data (which is far too boring for this post). I got the following data in [tidy form](https://en.wikipedia.org/wiki/Tidy_data). 
+
+```{r data}
+pointstidy
+fixture2019
+```
+
+Now the models we will use require us to have the mean points scored by each team, both home and away (for the poisson distribution model), and the standard deviation thereof (for the normal distribution model). So lets quickly calculate that, and assign them variable names:
+
+```{r points}
+pointssummary <- pointstidy %>% group_by(HorA, Team, FororAgainst) %>%
+                                summarise(sd = sd(Points), Points = mean(Points)) %>%
+                                ungroup
+pointssummary <- pointssummary[, c(2,1,3,4,5)]
+pointssummary
+```
+
+### THe Model
+
+Okay, lets disuss the model. Basically, each team's score in every game is modeled as a random sample (of n=1) from a poisson distribtuon that is calculated for each home and away pairing. In particular, the home team lambda is calculated as:
+
+and the away team lambda is calculated as:
+
+
+So lets calculate the lamba for each home and away pairing that will occur in the AFL season 2019. Each of the 18 teams plays only 22 games, so each team does not get to play each other twice. 
+BEfore we can calculate lamba we need to calculate the scaling paramaters discussed above, what we will call attack strength (for home and away) and defencestrength (for home and away)
+
+```{r strengths, echo=FALSE}
+
+# first we need to calculate the global averages for home and away scores both for and against
+# (NB. the average home for score will be the same as the average away against score, and the average   #  home against score is the average away for score)
+globalaverages <- pointssummary %>% group_by(HorA, FororAgainst) %>% summarise(Points = mean(Points)) 
+Homeaveragefor <- as.numeric(globalaverages[4, 3])
+Homeaverageagainst <- as.numeric(globalaverages[3, 3])
+Awayaveragefor <- as.numeric(globalaverages[2, 3])
+Awayaverageagainst <- as.numeric(globalaverages[1, 3])
+
+#Now, lets create functions which implement the above formulas
+AttackstrengthH <- function(T){
+  as.numeric((pointssummary %>% 
+                filter(Team == T, HorA == "H", FororAgainst == "For") %>%
+                select(Points))/Homeaveragefor)
+}
+
+AttackstrengthA <- function(T){
+  as.numeric((pointssummary %>% 
+                filter(Team == T, HorA == "A", FororAgainst == "For") %>% 
+                select(Points))/Awayaveragefor)
+}
+  
+DefencestrengthH <- function(T){
+  as.numeric(Homeaverageagainst/(pointssummary %>% 
+                                   filter(Team == T, HorA == "H", FororAgainst == "Against") %>% 
+                                   select(Points)))
+}
+  
+DefencestrengthA <-function(T){
+  as.numeric(Awayaverageagainst/(pointssummary %>% 
+                                   filter(Team == T, HorA == "A", FororAgainst == "Against") %>%
+                                   select(Points)))
+}
+
+#now let's get these strengths for all teams
+  #create tibble to populate
+strengths <- tibble(Team = unique(pointssummary$Team), AstrengthH = NA, 
+                    AstrengthA = NA, DstrengthH = NA, DstrengthA = NA)
+
+  # populate tibble with strengths
+strengths$AstrengthH <- map_dbl(strengths$Team, AttackstrengthH)
+strengths$AstrengthA <- map_dbl(strengths$Team, AttackstrengthA)
+strengths$DstrengthH <- map_dbl(strengths$Team, DefencestrengthH)
+strengths$DstrengthA <- map_dbl(strengths$Team, DefencestrengthA)
+```
+
+OK, now that we have the 'strength' values, let's use them to create the lambda values we need to run our simulations. 
+
+```{r lambdas}
+#create tibble to populate
+lambdas <- add_column(fixture2019, homelambda = NA, awaylambda = NA)
+
+#create lambda functions
+lambdahometeam <- function(HomeTeam, AwayTeam) {
+  Hometeamattackstrength <- as.numeric(strengths[strengths$Team == HomeTeam, "AstrengthH"])
+  Awayteamdefencestrength <- as.numeric(strengths[strengths$Team == AwayTeam, "DstrengthA"])
+ return(Homeaveragefor * Hometeamattackstrength / Awayteamdefencestrength)
+}
+
+lambdaawayteam <- function(AwayTeam, HomeTeam) {
+  Awayteamattackstrength <- as.numeric(strengths[strengths$Team == AwayTeam, "AstrengthA"])
+  Hometeamdefencestrength <- as.numeric(strengths[strengths$Team == HomeTeam, "DstrengthH"])
+  return(Awayaveragefor * Awayteamattackstrength / Hometeamdefencestrength)
+}
+
+#populate lamba table with lambdavalues. 
+for (i in 1:nrow(lambdas)) {
+  lambdas$homelambda[i] <- lambdahometeam(lambdas$Hometeam[i], lambdas$Awayteam[i])
+  lambdas$awaylambda[i] <- lambdaawayteam(lambdas$Awayteam[i], lambdas$Hometeam[i])
+}
+
+```
+
+###Simulating just one season
+
+Now, to get to the cool part lets get simulating. FIrst off, let's just figure out how to simulate just one season. THen, once we get past that we can get to the cool part of ONE MILLION SIMULATIONs. 
+
+```{r one season, echo=FALSE}
+# create League table (or Ladder as we call it here) to later populate
+  Ladder <- tibble(Team = strengths$Team, W = 0, L = 0, D = 0, Pts = 0,
+                      For = 0, Against = 0, Pct = 0)
+  #simulate season.
+for (i in 1:nrow(lambdas)) {
+
+  
+  #Here is the model working -- each score is simply a random drawing from a poisson distribution 
+  # described by our calculated lambas
+  homescore <- rpois(1, lambdas$homelambda[i])
+  awayscore <- rpois(1, lambdas$awaylambda[i])
+  hometeam <- lambdas$Hometeam[i]
+  awayteam <- lambdas$Awayteam[i]
+  
+  #populate scores
+  Ladder[Ladder$Team == hometeam,]$For <- Ladder[Ladder$Team == hometeam,]$For + homescore
+  Ladder[Ladder$Team == hometeam,]$Against <- Ladder[Ladder$Team == hometeam,]$Against + awayscore 
+  Ladder[Ladder$Team == awayteam,]$For <- Ladder[Ladder$Team == awayteam,]$For + awayscore
+  Ladder[Ladder$Team == awayteam,]$Against <- Ladder[Ladder$Team == awayteam,]$Against + homescore
+  
+  #populate table for draw
+  if (homescore == awayscore) {
+    #hometeam changes
+    Ladder[Ladder$Team == hometeam,]$D <- Ladder[Ladder$Team == hometeam,]$D + 1
+
+    #awayteam changes
+    Ladder[Ladder$Team == awayteam,]$D <- Ladder[Ladder$Team == awayteam,]$D + 1
+    
+  #populate table for hometeam win
+  } else if (homescore > awayscore) {
+    #hometeam changes
+    Ladder[Ladder$Team == hometeam,]$W <- Ladder[Ladder$Team == hometeam,]$W + 1
+    
+    #awayteam changes
+    Ladder[Ladder$Team == awayteam,]$L <- Ladder[Ladder$Team == awayteam,]$L + 1
+    
+  #populate for away team win
+  } else {
+    #hometeam changes
+    Ladder[Ladder$Team == hometeam,]$L <- Ladder[Ladder$Team == hometeam,]$L + 1
+    
+    #awayteam changes
+    Ladder[Ladder$Team == awayteam,]$W <- Ladder[Ladder$Team == awayteam,]$W + 1
+  }
+}
+
+#calculate points (4 for win, 2 for draw) and percentage and order final table
+#note that under AFL rules, if points are equal then ranked by percentage
+Ladder$Pct <- Ladder$For / Ladder$Against * 100
+Ladder$Pts <- (Ladder$W * 4) + (Ladder$D * 2)
+FinalLadder <- Ladder %>% arrange(desc(Pts), desc(Pct))
+FinalLadder
+```
+
+###ONE MILLION SEASONS
+
+Okay now that we have checked that our simulation works. Lets do it a lot of times!
+
+```{r simulation}
+
+##### SIMULATIONS #####
+Nsim <- 10
+
+#set up simulation results table
+SimResults <- matrix(data = 0, nrow = Nsim, ncol = 18)
+colnames(SimResults) <- strengths$Team
+
+#create Ladder for each season
+Ladder <- tibble(Team = strengths$Team, W = 0, L = 0, D = 0, Pts = 0,
+                 For = 0, Against = 0, Pct = 0)
+
+for (i in 1:Nsim){
+  
+  #simulate each season.
+  for (j in 1:nrow(lambdas)) {
+    
+    #Here is the model working -- each score is simply a random drawing 
+    #from a poisson distribution described by our calculated lambas
+    homescore <- rpois(1, lambdas$homelambda[j])
+    awayscore <- rpois(1, lambdas$awaylambda[j])
+    hometeam <- lambdas$Hometeam[j]
+    awayteam <- lambdas$Awayteam[j]
+    
+    #populate scores
+    Ladder[Ladder$Team == hometeam,]$For <- Ladder[Ladder$Team == hometeam,]$For + homescore
+    Ladder[Ladder$Team == hometeam,]$Against <- Ladder[Ladder$Team == hometeam,]$Against + awayscore 
+    Ladder[Ladder$Team == awayteam,]$For <- Ladder[Ladder$Team == awayteam,]$For + awayscore
+    Ladder[Ladder$Team == awayteam,]$Against <- Ladder[Ladder$Team == awayteam,]$Against + homescore
+    
+    #populate table for draw
+    if (homescore == awayscore) {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$D <- Ladder[Ladder$Team == hometeam,]$D + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$D <- Ladder[Ladder$Team == awayteam,]$D + 1
+
+    #populate table for hometeam win
+    } else if (homescore > awayscore) {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$W <- Ladder[Ladder$Team == hometeam,]$W + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$L <- Ladder[Ladder$Team == awayteam,]$L + 1
+      
+    #populate for away team win
+    } else {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$L <- Ladder[Ladder$Team == hometeam,]$L + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$W <- Ladder[Ladder$Team == awayteam,]$W + 1
+    }
+    
+  }
+  
+  #calculate points and percentage and order final table
+  #note that under AFL rules, if points are equal then ranked by percentage
+  Ladder$Pct <- Ladder$For / Ladder$Against * 100
+  Ladder$Pts <- (Ladder$W * 4) + (Ladder$D * 2)
+  FinalLadder <- Ladder %>% arrange(desc(Pts), desc(Pct))
+  
+  #populate simulation results table
+    for (k in 1:nrow(FinalLadder)) {
+      SimResults[i, FinalLadder$Team[k]] <- k
+    }
+} 
+
+#Print and inspect results of Simulation
+SimResultspois <- as_tibble(SimResults)
+SimResultspois
+
+Finalsimtable <- cbind.data.frame(MeanPos = colMeans(SimResults),
+                                  MedianPos = apply(SimResults, 2, median),
+                                  BestPos = apply(SimResults, 2, min),
+                                  WorstPos = apply(SimResults, 2, max)) %>%
+  cbind.data.frame(Team = strengths$Team)
+
+Finalsimtablepois <- Finalsimtable[,c(5, 2, 1, 3, 4)] %>% arrange(MedianPos, MeanPos)
+Finalsimtablepois
+
+```
+
+
+## normal distribution model 
+
+So now for a slight variation to this model, we will add a standard deviation paramater, treat the lamba valule as the mean, and assume that afl scores will be normally distrubuted. A priori, I think this will give better results than the poisson model for two principle reasons. 
+
+  1. the assumptions of the poisson model are not perfectly met in AFL. THe model assumes that "The occurrence of one event does not affect the probability that a second event will occur. That is, events occur independently." In AFL this is not true as a goal is worth 6 points
+  2. the normal model has a greater assumption to capture the variablility of scores. 
+  
+So before we get to the simulations we need to make a few quick changes to the lambda tables to include sd values. 
+
+```{r lambdasnorm}
+#setup up dataframe for lambas, this time including standard deviations too
+lambdas <- add_column(fixture2019, homelambda = NA, homesd = NA, awaylambda = NA, awaysd = NA)
+
+#create lambda  and sd functions
+lambdahometeam <- function(HomeTeam, AwayTeam) {
+  Hometeamattackstrength <- as.numeric(strengths[strengths$Team == HomeTeam, "AstrengthH"])
+  Awayteamdefencestrength <- as.numeric(strengths[strengths$Team == AwayTeam, "DstrengthA"])
+  return(Homeaveragefor * Hometeamattackstrength / Awayteamdefencestrength)
+}
+
+lambdaawayteam <- function(AwayTeam, HomeTeam) {
+  Awayteamattackstrength <- as.numeric(strengths[strengths$Team == AwayTeam, "AstrengthA"])
+  Hometeamdefencestrength <- as.numeric(strengths[strengths$Team == HomeTeam, "DstrengthH"])
+  return(Awayaveragefor * Awayteamattackstrength / Hometeamdefencestrength)
+}
+
+sdhometeam <- function(HomeTeam, AwayTeam) {
+  Hometeamattack <- as.numeric(pointssummary %>% filter(Team == HomeTeam, HorA == "H", FororAgainst == "For") %>%
+                    select(sd))
+  Awayteamdefence <- as.numeric(pointssummary %>% filter(Team == AwayTeam, HorA == "A", FororAgainst == "Against") %>%
+                    select(sd))
+  # becuase n is equal can simply take average.
+   return(mean(Hometeamattack, Awayteamdefence))
+}
+
+sdawayteam <- function(AwayTeam, HomeTeam) {
+  Awayteamattack <- as.numeric(pointssummary %>% filter(Team == AwayTeam, HorA == "A", FororAgainst == "For") %>%
+                                      select(sd))
+  Hometeamdefence <- as.numeric(pointssummary %>%  filter(Team == HomeTeam, HorA == "H", FororAgainst == "Against") %>%
+                                      select(sd))
+# becuase n is equal can simply take average.
+return(mean(Awayteamattack, Hometeamdefence))
+}
+
+
+#populate lamba values 
+for (i in 1:nrow(lambdas)) {
+  lambdas$homelambda[i] <- lambdahometeam(lambdas$Hometeam[i], lambdas$Awayteam[i])
+  lambdas$awaylambda[i] <- lambdaawayteam(lambdas$Awayteam[i], lambdas$Hometeam[i])
+  lambdas$homesd[i] <- sdhometeam(lambdas$Hometeam[i], lambdas$Awayteam[i])
+  lambdas$awaysd[i] <- sdawayteam(lambdas$Awayteam[i], lambdas$Hometeam[i])
+}
+
+```
+
+Okay now the grunt work is done lets do the simluations
+
+```{r normsims}
+Nsim <- 10
+
+#set up simulation results table
+SimResults <- matrix(data = 0, nrow = Nsim, ncol = 18)
+colnames(SimResults) <- strengths$Team
+
+for (i in 1:Nsim){
+
+  #create Ladder for each season
+  Ladder <- tibble(Team = strengths$Team, W = 0, L = 0, D = 0, Pts = 0,
+                   For = 0, Against = 0, Pct = 0)
+  
+  #simulate each season.
+  for (j in 1:nrow(lambdas)) {
+    
+    #Here is the model working -- each score is simply a random drawing 
+    #from a normal dist characterised by our lambda as mean, and sd
+    homescore <- rnorm(1, mean = lambdas$homelambda[j], sd = lambdas$homesd[j])
+    awayscore <- rnorm(1, lambdas$awaylambda[j], sd = lambdas$homesd[j])
+    hometeam <- lambdas$Hometeam[j]
+    awayteam <- lambdas$Awayteam[j]
+    
+    #populate scores
+    Ladder[Ladder$Team == hometeam,]$For <- Ladder[Ladder$Team == hometeam,]$For + homescore
+    Ladder[Ladder$Team == hometeam,]$Against <- Ladder[Ladder$Team == hometeam,]$Against + awayscore 
+    Ladder[Ladder$Team == awayteam,]$For <- Ladder[Ladder$Team == awayteam,]$For + awayscore
+    Ladder[Ladder$Team == awayteam,]$Against <- Ladder[Ladder$Team == awayteam,]$Against + homescore
+    
+    #populate table for draw
+    if (homescore == awayscore) {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$D <- Ladder[Ladder$Team == hometeam,]$D + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$D <- Ladder[Ladder$Team == awayteam,]$D + 1
+      
+      #populate table for hometeam win
+    } else if (homescore > awayscore) {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$W <- Ladder[Ladder$Team == hometeam,]$W + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$L <- Ladder[Ladder$Team == awayteam,]$L + 1
+      
+      #populate for away team win
+    } else {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$L <- Ladder[Ladder$Team == hometeam,]$L + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$W <- Ladder[Ladder$Team == awayteam,]$W + 1
+    }
+    
+  }
+  
+  #calculate points and percentage and order final table
+  #note that under AFL rules, if points are equal then ranked by percentage
+  Ladder$Pct <- Ladder$For / Ladder$Against * 100
+  Ladder$Pts <- (Ladder$W * 4) + (Ladder$D * 2)
+  FinalLadder <- Ladder %>% arrange(desc(Pts), desc(Pct))
+  
+  #populate simulation results table
+  for (k in 1:nrow(FinalLadder)) {
+    SimResults[i, FinalLadder$Team[k]] <- k
+  }
+} 
+
+#Print and inspect results of Simulation
+SimResultsnorm <- as_tibble(SimResults)
+SimResultsnorm
+
+Finalsimtable <- cbind.data.frame(MeanPos = colMeans(SimResults),
+                                  MedianPos = apply(SimResults, 2, median),
+                                  BestPos = apply(SimResults, 2, min),
+                                  WorstPos = apply(SimResults, 2, max)) %>%
+                 cbind.data.frame(Team = strengths$Team)
+
+Finalsimtablenorm <- Finalsimtable[,c(5, 2, 1, 3, 4)] %>% arrange(MedianPos, MeanPos)
+Finalsimtablenorm
+```

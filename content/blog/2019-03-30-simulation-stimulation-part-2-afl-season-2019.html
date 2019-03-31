@@ -1,0 +1,208 @@
+---
+title: 'Simulation Stimulation Part 2: AFL Season 2019'
+author: Joshua White
+date: '2019-03-30'
+slug: simulation-stimulation-part-2-afl-season-2019
+categories:
+  - R
+tags:
+  - AFL
+  - Simulations
+  - Sport
+image:
+  caption: ''
+  focal_point: ''
+output:
+  html_document: default
+---
+
+
+
+<p>In part one of this series, I applied three different models to the 2018 AFL season. In this part, I apply these models to the 2019 AFL fixture to attempt to make some predictions about the standings at the end of the year.</p>
+<p>Now Ideally, I would have applied these models to the last 10 (or more) years of AFL data to see which one better predicts results for the upcoming year — but who has time for that — So we are just going to go ahead.</p>
+<div id="the-models-a-reminder" class="section level2">
+<h2>The Models: A Reminder</h2>
+<div id="poisson-distributed-team-scores" class="section level3">
+<h3>Poisson Distributed Team Scores</h3>
+<p>Here, each team’s score in every game is modeled as a random drawing from a Poisson distribution — i.e. <span class="math inline">\(P(k) = e^{-\lambda} \frac{\lambda^k}{k!}\)</span>, where k is the number of points scored, and <span class="math inline">\(\lambda\)</span> is calculated as</p>
+<p><span class="math inline">\(\lambda_{home team} =\)</span> League Average points scored at home <span class="math inline">\(\times\)</span> home team attack strength at home <span class="math inline">\(\times\)</span> awayteam attack strength away</p>
+<p><span class="math inline">\(\lambda_{away team} =\)</span> League Average points scored away <span class="math inline">\(\times\)</span> away team attack strength away <span class="math inline">\(\times\)</span> hometeam defense strength at home</p>
+</div>
+<div id="normally-distributed-team-scores" class="section level3">
+<h3>Normally Distributed team scores</h3>
+<p>This model assumes that team scores are normally distributed around <span class="math inline">\(\lambda\)</span> as defined above, with a standard deviation calculated as the pooled standard deviation of that teams ‘for’ scores standard deviation, and the opponents ‘against’ scores standard deviation: <span class="math display">\[Points_{teamA} \sim \mathcal{N}(\mu=\lambda,\,\sigma = \sigma_p)\,\]</span> where: <br> <span class="math display">\[\sigma_{p}=\frac{\sigma_{teamAfor} + \sigma_{teamBagainst}}{2}\]</span></p>
+</div>
+<div id="rankings-model-tanh" class="section level3">
+<h3>Rankings model: tanh</h3>
+<p>This model simply relies on the ordinal data of last years final Ladder: Carlton, the wooden spoon winners (i.e. the last placeholders, out of 18 teams) get a ranking of 1, and Richmond, who finished on top of the table get a ranking of 18. Then, with this information, the probability of team A winning is modelled as follows:</p>
+<p><span class="math display">\[P(A\&gt;wins)=\frac{tanh(\frac{a-b}{w} + d)+1}{2}\]</span> where,<br> A = home team <br> a = home team ranking <br> b = away team ranking <br> w = weighting parameter (the higher the number the less weight placed on the rankings) <br> d = draw paramater, to allow for possibility of draws, calculated as so that <span class="math inline">\(tanh(d) = -draw\&gt;rate\)</span></p>
+</div>
+</div>
+<div id="results" class="section level2">
+<h2>2019 Results</h2>
+<div id="poisson-model" class="section level3">
+<h3>Poisson model</h3>
+<pre class="r"><code>Finalsimtablepois.2019</code></pre>
+<pre><code>##                      Team MedianPos MeanPos BestPos WorstPos percentWon
+## 1                Richmond       1.0     1.4       1        2         60
+## 2               Melbourne       2.0     2.4       1        4         20
+## 3                 Geelong       3.0     3.2       2        5          0
+## 4                Hawthorn       5.0     5.0       3        9          0
+## 5             Collingwood       5.0     5.2       1        7         10
+## 6              West Coast       6.0     5.7       1       10         10
+## 7         North Melbourne       8.0     7.7       3       10          0
+## 8  Greater Western Sydney       8.5     8.4       5       12          0
+## 9                  Sydney       9.0     9.4       7       12          0
+## 10          Port Adelaide       9.5     9.2       4       12          0
+## 11               Adelaide       9.5     9.5       6       12          0
+## 12               Essendon      11.0    10.9       8       12          0
+## 13         Brisbane Lions      13.0    13.4      13       14          0
+## 14              Fremantle      14.0    14.2      13       16          0
+## 15               St Kilda      15.0    15.2      14       16          0
+## 16       Western Bulldogs      15.5    15.2      13       16          0
+## 17                Carlton      17.5    17.5      17       18          0
+## 18             Gold Coast      17.5    17.5      17       18          0
+##    percentTop4 percentTop8 percentBottom4 percentLast Model
+## 1          100         100              0           0  pois
+## 2          100         100              0           0  pois
+## 3           90         100              0           0  pois
+## 4           40          90              0           0  pois
+## 5           20         100              0           0  pois
+## 6           30          90              0           0  pois
+## 7           10          70              0           0  pois
+## 8            0          50              0           0  pois
+## 9            0          30              0           0  pois
+## 10          10          30              0           0  pois
+## 11           0          30              0           0  pois
+## 12           0          10              0           0  pois
+## 13           0           0              0           0  pois
+## 14           0           0             40           0  pois
+## 15           0           0             80           0  pois
+## 16           0           0             80           0  pois
+## 17           0           0            100          50  pois
+## 18           0           0            100          50  pois</code></pre>
+<pre class="r"><code>pois2019graph</code></pre>
+<p><img src="/blog/2019-03-30-simulation-stimulation-part-2-afl-season-2019_files/figure-html/poisresults-1.png" width="672" /></p>
+</div>
+<div id="normal-model" class="section level3">
+<h3>Normal model</h3>
+<pre class="r"><code>Finalsimtablenorm.2019</code></pre>
+<pre><code>##                      Team MedianPos MeanPos BestPos WorstPos percentWon
+## 1                Richmond       1.0     1.4       1        2         60
+## 2               Melbourne       2.0     2.4       1        4         20
+## 3                 Geelong       3.0     3.2       2        5          0
+## 4                Hawthorn       5.0     5.0       3        9          0
+## 5             Collingwood       5.0     5.2       1        7         10
+## 6              West Coast       6.0     5.7       1       10         10
+## 7         North Melbourne       8.0     7.7       3       10          0
+## 8  Greater Western Sydney       8.5     8.4       5       12          0
+## 9                  Sydney       9.0     9.4       7       12          0
+## 10          Port Adelaide       9.5     9.2       4       12          0
+## 11               Adelaide       9.5     9.5       6       12          0
+## 12               Essendon      11.0    10.9       8       12          0
+## 13         Brisbane Lions      13.0    13.4      13       14          0
+## 14              Fremantle      14.0    14.2      13       16          0
+## 15               St Kilda      15.0    15.2      14       16          0
+## 16       Western Bulldogs      15.5    15.2      13       16          0
+## 17                Carlton      17.5    17.5      17       18          0
+## 18             Gold Coast      17.5    17.5      17       18          0
+##    percentTop4 percentTop8 percentBottom4 percentLast Model
+## 1          100         100              0           0  norm
+## 2          100         100              0           0  norm
+## 3           90         100              0           0  norm
+## 4           40          90              0           0  norm
+## 5           20         100              0           0  norm
+## 6           30          90              0           0  norm
+## 7           10          70              0           0  norm
+## 8            0          50              0           0  norm
+## 9            0          30              0           0  norm
+## 10          10          30              0           0  norm
+## 11           0          30              0           0  norm
+## 12           0          10              0           0  norm
+## 13           0           0              0           0  norm
+## 14           0           0             40           0  norm
+## 15           0           0             80           0  norm
+## 16           0           0             80           0  norm
+## 17           0           0            100          50  norm
+## 18           0           0            100          50  norm</code></pre>
+<pre class="r"><code>norm2019graph</code></pre>
+<p><img src="/blog/2019-03-30-simulation-stimulation-part-2-afl-season-2019_files/figure-html/normresults-1.png" width="672" /></p>
+</div>
+<div id="tanh-model" class="section level3">
+<h3>Tanh model</h3>
+<pre class="r"><code>Finalsimlist.2019[[20]] %&gt;% tibble()</code></pre>
+<pre><code>## # A tibble: 18 x 1
+##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
+##    &lt;fct&gt;       &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;     &lt;dbl&gt;       &lt;dbl&gt;        &lt;dbl&gt;
+##  1 Richm~        2        2.6        1         5          30           80
+##  2 West ~        2.5      3.5        1        10          20           80
+##  3 Hawth~        3.5      5.5        2        14           0           60
+##  4 Melbo~        5.5      5          1         8          10           40
+##  5 Colli~        5.5      5.8        1        12          20           50
+##  6 Great~        6.5      5.8        1         9          10           30
+##  7 Port ~        6.5      8.2        2        14           0           10
+##  8 North~        6.5      8.6        4        17           0           10
+##  9 Sydney        8        7.3        1        15          10           40
+## 10 Geelo~        9.5      9.9        5        17           0            0
+## 11 Frema~       11.5     12.3        8        18           0            0
+## 12 Adela~       12.5     12.4        8        18           0            0
+## 13 Essen~       12.5     12.8        8        18           0            0
+## 14 Gold ~       13.5     13.5        7        18           0            0
+## 15 Weste~       14       13.3        9        16           0            0
+## 16 Brisb~       14       14.2       10        18           0            0
+## 17 Carlt~       15       13.8        6        17           0            0
+## 18 St Ki~       17.5     16.5       10        18           0            0
+## # ... with 4 more variables: $percentTop8 &lt;dbl&gt;, $percentBottom4 &lt;dbl&gt;,
+## #   $percentLast &lt;dbl&gt;, $Model &lt;chr&gt;</code></pre>
+<pre class="r"><code>tanh2019graph</code></pre>
+<p><img src="/blog/2019-03-30-simulation-stimulation-part-2-afl-season-2019_files/figure-html/tanhresults-1.png" width="672" /></p>
+</div>
+</div>
+<div id="comparing-the-three-models." class="section level2">
+<h2>Comparing the three models.</h2>
+<pre class="r"><code>#create table with different orders. 
+ordercomparison.2018 &lt;- data.frame(Team = factor(finalTable2018$Team),
+                              Order2018 = 1:18,
+                              OrderNorm.2018 = match(finalTable2018$Team, Finalsimtablenorm.2018$Team),
+                              OrderPois.2018 = match(finalTable2018$Team, Finalsimtablepois.2018$Team),
+                              OrderTanh.2018 = match(finalTable2018$Team, Finalsimlist.2018[[20]]$Team)) 
+
+ordercomparison.2018 %&gt;% tibble()
+
+#Let&#39;s now get the spearman&#39;s correlation coefficients and show that in a correlatin matrix
+cormatrix.2018 &lt;- cor(ordercomparison.2018[,2:5], use = &quot;all.obs&quot;, method = &quot;spearman&quot;)
+ggcorrplot(cormatrix.2018, lab = TRUE)
+
+## create comparison graphs ##
+
+#combine two graphs##
+Finalsimtablenorm.2019$Model &lt;- &quot;norm&quot;
+Finalsimtablepois.2019$Model &lt;- &quot;pois&quot;
+Finalsimlist.2019[[20]]$Model &lt;- &quot;tanh&quot;
+
+comparisonSimTable.2019 &lt;- rbind(Finalsimtablenorm.2019, Finalsimtablepois.2019, Finalsimlist.2019[[20]])
+comparisonSimTable.2019$Model &lt;- factor(comparisonSimTable.2019$Model)
+
+# create tidy data to compare a lot in one go
+comparisonSimTable.2019.tidy &lt;- gather(comparisonSimTable.2019, &quot;Type&quot;, &quot;Percent&quot;, 6:10)
+comparisonSimTable.2019.tidy 
+
+#create ordered factor to order graph
+comparisonSimTable.2019.tidy$Team &lt;- factor(comparisonSimTable.2019.tidy$Team, levels = Finalsimtablepois.2019$Team)
+
+#create ordered factor of &#39;Type&#39; to order facet
+comparisonSimTable.2019.tidy$Type &lt;- factor(comparisonSimTable.2019.tidy$Type, 
+                                       levels = c(&quot;percentWon&quot;, &quot;percentTop4&quot;, &quot;percentTop8&quot;,
+                                                  &quot;percentBottom4&quot;, &quot;percentLast&quot;))
+
+#draw graphs
+ggplot(comparisonSimTable.2019, aes(x = Team, y = percentWon, fill = Model)) + 
+  geom_bar(stat = &quot;identity&quot;, position = &#39;dodge&#39;)
+ggplot(comparisonSimTable.2019, aes(x = Team, y = percentTop8, fill = Model)) +
+  geom_bar(stat = &quot;identity&quot;, position = &#39;dodge&#39;)
+
+ggplot(comparisonSimTable.2019.tidy, aes(x = Team, y = Percent, fill = Model)) + 
+  geom_bar(stat = &quot;identity&quot;, position = &#39;dodge&#39;) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6)) +
+  facet_wrap(~Type, nrow = 1)</code></pre>
+</div>

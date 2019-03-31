@@ -1,0 +1,91 @@
+/*************************************************
+ *  REMOVE PARALLAX BACKGROUND
+ **************************************************/
+
+.parallax {
+  height: 100%;
+  background-attachment: scroll;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+
+}
+
+/*************************************************
+ *  Button Primary: Color Override
+ **************************************************/
+
+.btn-primary {
+  border-color: "goldenrod";
+  /*background: "goldenrod";*/
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active,
+.btn-primary.active,
+.open > .dropdown-toggle.btn-primary {
+  background: "goldenrod";
+}
+
+
+/*************************************************
+ *  Button Outlines
+ **************************************************/
+
+
+.btn-primary.btn-outline {
+  color: "goldenrod";
+  border-color: "goldenrod";
+}
+
+/*************************************************
+ *  Navigation Bar
+ **************************************************/
+
+.navbar-default .navbar-nav>.active>a,
+.navbar-default .navbar-nav>.active>a:focus,
+.navbar-default .navbar-nav>.active>a:hover {
+  color: "goldenrod";
+  font-weight: 700;
+  background-color: transparent !important; /* Override Bootstrap. */
+}
+
+.dropdown-menu > .active > a,
+.dropdown-menu > .active > a:focus,
+.dropdown-menu > .active > a:hover {
+  color: #fff;
+  text-decoration: none;
+  background-color: "goldenrod";
+  outline: 0;
+}
+
+@media screen and (max-width: 1200px) {
+
+  .navbar-default .navbar-nav .open .dropdown-menu > .active > a,
+  .navbar-default .navbar-nav .open .dropdown-menu > .active > a:focus,
+  .navbar-default .navbar-nav .open .dropdown-menu > .active > a:hover {
+    color: "goldenrod";
+    background-color: transparent;
+  }
+
+}
+
+/*************************************************
+ *  Toolbar Buttons
+ **************************************************/
+ 
+
+.btn-toolbar .btn.btn-primary { 
+  background: rgb(127,140,180);
+}
+
+.btn-toolbar .btn.btn-primary:hover,
+.btn-toolbar .btn.btn-primary:focus {
+  background-color: rgba(127,140,180,0.6);
+}
+
+.btn-toolbar .btn.btn-primary:active,
+.btn-toolbar .btn.btn-primary.active {
+  background-color: rgba(52,60,86,1);
+}
