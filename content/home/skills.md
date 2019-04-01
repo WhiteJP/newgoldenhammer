@@ -18,24 +18,45 @@ subtitle = ""
   icon = "r-project"
   icon_pack = "fab"
   name = "R"
-  description = "90%"
   
 [[feature]]
   icon = "chart-line"
   icon_pack = "fas"
   name = "Statistics"
-  description = "100%"  
   
 [[feature]]
   icon = "overleaf"
   icon_pack = "ai"
-  name = "Latex"
-  description = "20%"  
+  name = "LaTex"
   
 [[feature]]
   icon = "gavel"
   icon_pack = "fas"
-  name = "Lawyering"
-  description = "Admitted Solicitor"
+  name = "Lawyer"
+
+[[feature]]
+  icon = "markdown"
+  icon_pack = "fab"
+  name = "Markdown & R Markdown"
+  
+[[feature]]
+  icon = "chart-area"
+  icon_pack = "fas"
+  name = "Data Visualization"
+ 
+[[feature]]
+  icon = "terminal"
+  icon_pack = "fas"
+  name = "Statistical & Experiment Programming" 
+  
+[[feature]]
+  icon = "robot"
+  icon_pack = "fas"
+  name = "Machine Learning" 
+
+[[feature]]
+  icon = "handshake"
+  icon_pack = "fas"
+  name = "Negotiation & Dispute Resolution"     
 
 +++
