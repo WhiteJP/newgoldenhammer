@@ -47,9 +47,11 @@ subtitle = ""
  css_class = ""
 +++
 
-"I suppose it's tempting, if the only tool you have is a hammer, to treat everything as if it were a nail." --- Abraham Maslow, known as 'the golden hammer'. <br>
+>"I suppose it's tempting, if the only tool you have is a hammer, to treat everything as if it were a nail." 
 
-* Hammer: Data analysis and computational modelling, implemented primarily through "R".<br>
+--- Abraham Maslow, discussing ['the golden hammer'](https://en.wikipedia.org/wiki/Law_of_the_instrument). <br>
+
+* Hammer: Data analysis and computational modelling, implemented primarily through the statistical programming language "R".<br>
 * Nails: Human behaviour --- Psychology, Politics, Philosophy, Law, Sport, and whavetever else takes my fancy from time to time.  
 
 Welcome to the __new__ golden hammer.  

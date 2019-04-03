@@ -128,7 +128,7 @@ for (i in 1:nrow(lambdas.2018)) {
 }
 
 ####POISSON SIMULATION####
-Nsim.pois.2018 <- 10
+Nsim.pois.2018 <- 1000
 
 #set up simulation results table
 SimResults <- matrix(data = 0, nrow = Nsim.pois.2018, ncol = 18)
@@ -214,7 +214,7 @@ Finalsimtable <- cbind.data.frame(MeanPos = colMeans(SimResultspois.2018),
 Finalsimtablepois.2018 <- Finalsimtable[,c(10, 2, 1, 3:9)] %>% arrange(MedianPos, MeanPos)
 
 ####NORM SIMULATIONS####
-Nsim.norm.2018 <- 10
+Nsim.norm.2018 <- 1000
 
 #set up simulation results table
 SimResults <- matrix(data = 0, nrow = Nsim.norm.2018, ncol = 18)
@@ -310,7 +310,7 @@ probwin <- function(a, b, w, d = drawparam){
 rankings <- rev(finalTable2018$Team)
 
 ##SIMULATIONS## 
-Nsim.tanh.2018 <- 10 # for each weight parameter looped over
+Nsim.tanh.2018 <- 1000 # for each weight parameter looped over
 
 #create table for each simulation
 gameresults.tanh <- matrix(data = 0, nrow = Nsim.tanh.2018, ncol = nrow(fixture2018))

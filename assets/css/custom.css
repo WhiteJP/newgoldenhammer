@@ -89,3 +89,35 @@
 .btn-toolbar .btn.btn-primary.active {
   background-color: rgba(52,60,86,1);
 }
+
+/*********COLOUR OF QUOTES AND LINKS**/
+
+blockquote {
+  padding: .5rem 1rem;
+  margin: .8rem 0;
+  color: "black";
+  border-left: .25rem solid "black";
+}
+  
+  
+/******** maybe**/
+a:hover,
+a:focus {
+  color: "blue";
+}
+
+a {
+    color: "blue";
+}
+a:visited {
+    color: "blue";
+}
+a:hover {
+    color:"blue" ;
+}
+a:focus {
+    color: "blue";
+}
+a:active {
+    color: "blue";
+}
