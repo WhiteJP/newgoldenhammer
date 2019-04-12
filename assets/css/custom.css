@@ -99,14 +99,6 @@ color: black;
 border-left: .25rem solid black;
 }
 
-.aboutblog body {
-  color: black;
-}
-
-.aboutblog h1 {
-  color: black;
-}
-
 .aboutblog a:link {
   color:peru;
 }
@@ -127,12 +119,5 @@ border-left: .25rem solid black;
   color:peru;
 }
   
-/******** maybe**/
 
-
-a:link {color:goldenrod;}
-a:visited {color:goldenrod;}
-a:hover {color:goldenrod;}
-a:active {color:goldenrod;}
-a:focus {color:goldenrod;}
 
