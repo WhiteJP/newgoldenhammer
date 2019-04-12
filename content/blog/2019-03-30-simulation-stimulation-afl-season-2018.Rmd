@@ -7,19 +7,25 @@ categories:
   - R
 tags:
   - AFL
-  - Sport
+  - Sport   
   - Simulations
 image:
   caption: ''
   focal_point: ''
 output:
-  html_document: default
+  blogdown::html_page:
+    toc: true
+summary: "Attempts at modelling and simulating the 2018 Australian Football League Season"
+header:
+  image: "headers/GeelongCats.jpg"
+  caption: "image source: [**The Courier**](www.thecourier.com.au)"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 source("blogfiles/AFL-Sim/AFLsim2018.R")
 ```
+
 
 Recently I was, as I am (unfortunately) rather wont to do, aimlessly watching YouTube videos when I came across these [two](https://www.youtube.com/watch?v=Vv9wpQIGZDw) [videos](https://www.youtube.com/watch?v=Zs2M7gWSbTg) by Numberphile. Here, the authors discuss their attempts at modelling and simulating seasons of the English Premier League. 
 
@@ -76,7 +82,7 @@ fixture2019
 
 ##Results
 
-Ok, so we are going to simulate 1000 seasons for each of these models (I wish I could do more, but my current computer lacks power, and my code is far from effiecient : cry :). Here are the results from these simulations (for details on the code see part III of this series):
+Ok, so we are going to simulate 1000 seasons for each of these models (I wish I could do more, but my current computer lacks power, and my code is far from effiecient :cry: ). Here are the results from these simulations (for details on the code see part III of this series):
 
 ###Poisson model
 ```{r poisresults}

@@ -28,8 +28,7 @@
   
     
   
-  <meta name="description" content="In part one of this series, I applied three different models to the 2018 AFL season. In this part, I apply these models to the 2019 AFL fixture to attempt to make some predictions about the standings at the end of the year.
-Now Ideally, I would have applied these models to the last 10 (or more) years of AFL data to see which one better predicts results for the upcoming year — but who has time for that — So we are just going to go ahead.">
+  <meta name="description" content="Taking the modelling techniques from part 1 and simulating the future: the 2019 Australian Football League Season">
 
   
   <link rel="alternate" hreflang="en-us" href="/blog/simulation-stimulation-part-2-afl-season-2019/">
@@ -101,7 +100,7 @@ Now Ideally, I would have applied these models to the last 10 (or more) years of
     
     
     
-    <link rel="stylesheet" href="/css/academic.27f02db88b8e04723df67c167803b1bb.css">
+    <link rel="stylesheet" href="/css/academic.4822d305c6d991d0b65de648a3b03af6.css">
   
 
   
@@ -134,11 +133,10 @@ Now Ideally, I would have applied these models to the last 10 (or more) years of
   <meta property="og:site_name" content="The New Golden Hammer">
   <meta property="og:url" content="/blog/simulation-stimulation-part-2-afl-season-2019/">
   <meta property="og:title" content="Simulation Stimulation Part 2: AFL Season 2019 | The New Golden Hammer">
-  <meta property="og:description" content="In part one of this series, I applied three different models to the 2018 AFL season. In this part, I apply these models to the 2019 AFL fixture to attempt to make some predictions about the standings at the end of the year.
-Now Ideally, I would have applied these models to the last 10 (or more) years of AFL data to see which one better predicts results for the upcoming year — but who has time for that — So we are just going to go ahead."><meta property="og:image" content="/img/icon-192.png">
+  <meta property="og:description" content="Taking the modelling techniques from part 1 and simulating the future: the 2019 Australian Football League Season"><meta property="og:image" content="/img/icon-192.png">
   <meta property="og:locale" content="en-us">
   
-  <meta property="article:published_time" content="2019-03-30T00:00:00&#43;00:00">
+  <meta property="article:published_time" content="2019-04-04T00:00:00&#43;00:00">
   
   <meta property="article:modified_time" content="2019-04-01T00:33:38&#43;11:00">
   
@@ -292,10 +290,6 @@ Now Ideally, I would have applied these models to the last 10 (or more) years of
         
 
         
-        <li class="nav-item">
-          <a class="nav-link js-dark-toggle" href="#"><i class="fas fa-moon" aria-hidden="true"></i></a>
-        </li>
-        
 
       </ul>
 
@@ -334,7 +328,7 @@ Now Ideally, I would have applied these models to the last 10 (or more) years of
 
 
 
-<meta content="2019-03-30 00:00:00 &#43;0000 UTC" itemprop="datePublished">
+<meta content="2019-04-04 00:00:00 &#43;0000 UTC" itemprop="datePublished">
 <meta content="2019-04-01 00:33:38 &#43;1100 AEDT" itemprop="dateModified">
 
 <div class="article-metadata">
@@ -449,6 +443,21 @@ Now Ideally, I would have applied these models to the last 10 (or more) years of
     <div class="article-style" itemprop="articleBody">
       
 
+<div id="TOC">
+<ul>
+<li><a href="#the-models-a-reminder">The Models: A Reminder</a><ul>
+<li><a href="#poisson-distributed-team-scores">Poisson Distributed Team Scores</a></li>
+<li><a href="#normally-distributed-team-scores">Normally Distributed team scores</a></li>
+<li><a href="#rankings-model-tanh">Rankings model: tanh</a></li>
+</ul></li>
+<li><a href="#results">2019 Results</a><ul>
+<li><a href="#poisson-model">Poisson model</a></li>
+<li><a href="#normal-model">Normal model</a></li>
+<li><a href="#tanh-model">Tanh model</a></li>
+</ul></li>
+<li><a href="#comparing-the-three-models.">Comparing the three models.</a></li>
+</ul>
+</div>
 
 <p>In part one of this series, I applied three different models to the 2018 AFL season. In this part, I apply these models to the 2019 AFL fixture to attempt to make some predictions about the standings at the end of the year.</p>
 <p>Now Ideally, I would have applied these models to the last 10 (or more) years of AFL data to see which one better predicts results for the upcoming year — but who has time for that — So we are just going to go ahead.</p>
@@ -476,43 +485,43 @@ Now Ideally, I would have applied these models to the last 10 (or more) years of
 <h3>Poisson model</h3>
 <pre class="r"><code>Finalsimtablepois.2019</code></pre>
 <pre><code>##                      Team MedianPos MeanPos BestPos WorstPos percentWon
-## 1                Richmond       1.0     1.4       1        2         60
-## 2               Melbourne       2.0     2.4       1        4         20
-## 3                 Geelong       3.0     3.2       2        5          0
-## 4                Hawthorn       5.0     5.0       3        9          0
-## 5             Collingwood       5.0     5.2       1        7         10
-## 6              West Coast       6.0     5.7       1       10         10
-## 7         North Melbourne       8.0     7.7       3       10          0
-## 8  Greater Western Sydney       8.5     8.4       5       12          0
-## 9                  Sydney       9.0     9.4       7       12          0
-## 10          Port Adelaide       9.5     9.2       4       12          0
-## 11               Adelaide       9.5     9.5       6       12          0
-## 12               Essendon      11.0    10.9       8       12          0
-## 13         Brisbane Lions      13.0    13.4      13       14          0
-## 14              Fremantle      14.0    14.2      13       16          0
-## 15               St Kilda      15.0    15.2      14       16          0
-## 16       Western Bulldogs      15.5    15.2      13       16          0
-## 17                Carlton      17.5    17.5      17       18          0
-## 18             Gold Coast      17.5    17.5      17       18          0
+## 1                Richmond       1.0     1.9       1        5         60
+## 2               Melbourne       2.0     2.4       1        5         10
+## 3                 Geelong       3.0     3.9       1        8         20
+## 4              West Coast       4.0     3.5       2        4          0
+## 5                Hawthorn       5.0     5.3       1       11         10
+## 6             Collingwood       6.0     5.8       3        9          0
+## 7  Greater Western Sydney       7.5     7.9       6       11          0
+## 8         North Melbourne       8.0     8.3       6       11          0
+## 9           Port Adelaide       9.0     8.7       6       12          0
+## 10                 Sydney       9.5     9.5       6       12          0
+## 11               Adelaide      10.5    10.2       8       12          0
+## 12               Essendon      11.0    10.6       8       12          0
+## 13         Brisbane Lions      13.0    13.3      13       15          0
+## 14               St Kilda      14.0    14.4      13       16          0
+## 15              Fremantle      15.0    14.6      13       16          0
+## 16       Western Bulldogs      16.0    15.7      14       16          0
+## 17             Gold Coast      17.0    17.2      17       18          0
+## 18                Carlton      18.0    17.8      17       18          0
 ##    percentTop4 percentTop8 percentBottom4 percentLast Model
-## 1          100         100              0           0  pois
-## 2          100         100              0           0  pois
-## 3           90         100              0           0  pois
-## 4           40          90              0           0  pois
-## 5           20         100              0           0  pois
-## 6           30          90              0           0  pois
-## 7           10          70              0           0  pois
+## 1           90         100              0           0  pois
+## 2           90         100              0           0  pois
+## 3           70         100              0           0  pois
+## 4          100         100              0           0  pois
+## 5           20          90              0           0  pois
+## 6           30          80              0           0  pois
+## 7            0          70              0           0  pois
 ## 8            0          50              0           0  pois
-## 9            0          30              0           0  pois
-## 10          10          30              0           0  pois
+## 9            0          40              0           0  pois
+## 10           0          30              0           0  pois
 ## 11           0          30              0           0  pois
 ## 12           0          10              0           0  pois
-## 13           0           0              0           0  pois
+## 13           0           0             10           0  pois
 ## 14           0           0             40           0  pois
-## 15           0           0             80           0  pois
-## 16           0           0             80           0  pois
-## 17           0           0            100          50  pois
-## 18           0           0            100          50  pois</code></pre>
+## 15           0           0             60           0  pois
+## 16           0           0             90           0  pois
+## 17           0           0            100          20  pois
+## 18           0           0            100          80  pois</code></pre>
 <pre class="r"><code>pois2019graph</code></pre>
 <p><img src="/blog/2019-03-30-simulation-stimulation-part-2-afl-season-2019_files/figure-html/poisresults-1.png" width="672" /></p>
 </div>
@@ -520,43 +529,43 @@ Now Ideally, I would have applied these models to the last 10 (or more) years of
 <h3>Normal model</h3>
 <pre class="r"><code>Finalsimtablenorm.2019</code></pre>
 <pre><code>##                      Team MedianPos MeanPos BestPos WorstPos percentWon
-## 1                Richmond       1.0     1.4       1        2         60
-## 2               Melbourne       2.0     2.4       1        4         20
-## 3                 Geelong       3.0     3.2       2        5          0
-## 4                Hawthorn       5.0     5.0       3        9          0
-## 5             Collingwood       5.0     5.2       1        7         10
-## 6              West Coast       6.0     5.7       1       10         10
-## 7         North Melbourne       8.0     7.7       3       10          0
-## 8  Greater Western Sydney       8.5     8.4       5       12          0
-## 9                  Sydney       9.0     9.4       7       12          0
-## 10          Port Adelaide       9.5     9.2       4       12          0
-## 11               Adelaide       9.5     9.5       6       12          0
-## 12               Essendon      11.0    10.9       8       12          0
-## 13         Brisbane Lions      13.0    13.4      13       14          0
-## 14              Fremantle      14.0    14.2      13       16          0
-## 15               St Kilda      15.0    15.2      14       16          0
-## 16       Western Bulldogs      15.5    15.2      13       16          0
-## 17                Carlton      17.5    17.5      17       18          0
-## 18             Gold Coast      17.5    17.5      17       18          0
+## 1                Richmond       1.0     1.9       1        5         60
+## 2               Melbourne       2.0     2.4       1        5         10
+## 3                 Geelong       3.0     3.9       1        8         20
+## 4              West Coast       4.0     3.5       2        4          0
+## 5                Hawthorn       5.0     5.3       1       11         10
+## 6             Collingwood       6.0     5.8       3        9          0
+## 7  Greater Western Sydney       7.5     7.9       6       11          0
+## 8         North Melbourne       8.0     8.3       6       11          0
+## 9           Port Adelaide       9.0     8.7       6       12          0
+## 10                 Sydney       9.5     9.5       6       12          0
+## 11               Adelaide      10.5    10.2       8       12          0
+## 12               Essendon      11.0    10.6       8       12          0
+## 13         Brisbane Lions      13.0    13.3      13       15          0
+## 14               St Kilda      14.0    14.4      13       16          0
+## 15              Fremantle      15.0    14.6      13       16          0
+## 16       Western Bulldogs      16.0    15.7      14       16          0
+## 17             Gold Coast      17.0    17.2      17       18          0
+## 18                Carlton      18.0    17.8      17       18          0
 ##    percentTop4 percentTop8 percentBottom4 percentLast Model
-## 1          100         100              0           0  norm
-## 2          100         100              0           0  norm
-## 3           90         100              0           0  norm
-## 4           40          90              0           0  norm
-## 5           20         100              0           0  norm
-## 6           30          90              0           0  norm
-## 7           10          70              0           0  norm
+## 1           90         100              0           0  norm
+## 2           90         100              0           0  norm
+## 3           70         100              0           0  norm
+## 4          100         100              0           0  norm
+## 5           20          90              0           0  norm
+## 6           30          80              0           0  norm
+## 7            0          70              0           0  norm
 ## 8            0          50              0           0  norm
-## 9            0          30              0           0  norm
-## 10          10          30              0           0  norm
+## 9            0          40              0           0  norm
+## 10           0          30              0           0  norm
 ## 11           0          30              0           0  norm
 ## 12           0          10              0           0  norm
-## 13           0           0              0           0  norm
+## 13           0           0             10           0  norm
 ## 14           0           0             40           0  norm
-## 15           0           0             80           0  norm
-## 16           0           0             80           0  norm
-## 17           0           0            100          50  norm
-## 18           0           0            100          50  norm</code></pre>
+## 15           0           0             60           0  norm
+## 16           0           0             90           0  norm
+## 17           0           0            100          20  norm
+## 18           0           0            100          80  norm</code></pre>
 <pre class="r"><code>norm2019graph</code></pre>
 <p><img src="/blog/2019-03-30-simulation-stimulation-part-2-afl-season-2019_files/figure-html/normresults-1.png" width="672" /></p>
 </div>
@@ -566,24 +575,24 @@ Now Ideally, I would have applied these models to the last 10 (or more) years of
 <pre><code>## # A tibble: 18 x 1
 ##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
 ##    &lt;fct&gt;       &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;     &lt;dbl&gt;       &lt;dbl&gt;        &lt;dbl&gt;
-##  1 Richm~        2        2.6        1         5          30           80
-##  2 West ~        2.5      3.5        1        10          20           80
-##  3 Hawth~        3.5      5.5        2        14           0           60
-##  4 Melbo~        5.5      5          1         8          10           40
-##  5 Colli~        5.5      5.8        1        12          20           50
-##  6 Great~        6.5      5.8        1         9          10           30
-##  7 Port ~        6.5      8.2        2        14           0           10
-##  8 North~        6.5      8.6        4        17           0           10
-##  9 Sydney        8        7.3        1        15          10           40
-## 10 Geelo~        9.5      9.9        5        17           0            0
-## 11 Frema~       11.5     12.3        8        18           0            0
-## 12 Adela~       12.5     12.4        8        18           0            0
-## 13 Essen~       12.5     12.8        8        18           0            0
-## 14 Gold ~       13.5     13.5        7        18           0            0
-## 15 Weste~       14       13.3        9        16           0            0
-## 16 Brisb~       14       14.2       10        18           0            0
-## 17 Carlt~       15       13.8        6        17           0            0
-## 18 St Ki~       17.5     16.5       10        18           0            0
+##  1 Richm~        2        3.3        1        10          30           70
+##  2 West ~        3.5      4.3        2         7           0           60
+##  3 Hawth~        3.5      4.9        1        13          40           70
+##  4 Geelo~        5        7.3        2        13           0           20
+##  5 Melbo~        6        6          1        12          10           40
+##  6 Sydney        6.5      7.4        3        16           0           20
+##  7 Colli~        8        6.8        2        10           0           30
+##  8 Port ~        9        8          2        14           0           30
+##  9 Great~        9.5      9          3        15           0           20
+## 10 North~       10       10.4        6        18           0            0
+## 11 Weste~       10.5     10.7        5        17           0            0
+## 12 Frema~       12       10.1        1        16          20           20
+## 13 Adela~       12.5     12          4        18           0           10
+## 14 Essen~       13.5     12.4        6        17           0            0
+## 15 Brisb~       15.5     13          3        18           0           10
+## 16 Gold ~       15.5     14.7       10        17           0            0
+## 17 St Ki~       16.5     14.9        8        18           0            0
+## 18 Carlt~       16.5     15.8       12        18           0            0
 ## # ... with 4 more variables: $percentTop8 &lt;dbl&gt;, $percentBottom4 &lt;dbl&gt;,
 ## #   $percentLast &lt;dbl&gt;, $Model &lt;chr&gt;</code></pre>
 <pre class="r"><code>tanh2019graph</code></pre>

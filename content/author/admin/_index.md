@@ -22,8 +22,9 @@ education:
 email: "joshua.white@outlook.com.au"
 interests:
 - Moral Psychology
-- Computational modelling
-- Data science
+- Cognitive Psychology
+- Computational Modelling
+- Data Science
 name: Joshua White
 organizations:
 - name: University of Melbourne

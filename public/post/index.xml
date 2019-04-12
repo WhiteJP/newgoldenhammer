@@ -7,18 +7,21 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>Joshua White &amp;copy; {year}</copyright>
-    <lastBuildDate>Sat, 30 Mar 2019 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 12 Apr 2019 00:00:00 +0000</lastBuildDate>
     
 	<atom:link href="/post/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
-      <title>Simulation Stimulation Part 2: AFL Season 2019</title>
-      <link>/post/simulation-stimulation-part-2-afl-season-2019/</link>
-      <pubDate>Sat, 30 Mar 2019 00:00:00 +0000</pubDate>
+      <title>dsfghj,</title>
+      <link>/post/dsfghj/</link>
+      <pubDate>Fri, 12 Apr 2019 00:00:00 +0000</pubDate>
       
-      <guid>/post/simulation-stimulation-part-2-afl-season-2019/</guid>
-      <description></description>
+      <guid>/post/dsfghj/</guid>
+      <description>Table of Contents  Possion model simulations Normal model simulations   Parts 1 and 2 of this series made attempts to model, and them simulate, the 2018 and 2019 AFL seasons. These models were extremely simplistic, but were none-the-less interesting.
+#Normal and Poisson models
+##Preparatory steps
+#average H or A Average &amp;lt;- pointssummary %&amp;gt;% group_by(HorA, FororAgainst) %&amp;gt;% summarise(Points = mean(Points)) Homeaveragefor &amp;lt;- as.numeric(Average[4, 3]) Homeaverageagainst &amp;lt;- as.numeric(Average[3, 3]) Awayaveragefor &amp;lt;- as.</description>
     </item>
     
   </channel>

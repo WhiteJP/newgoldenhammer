@@ -90,34 +90,49 @@
   background-color: rgba(52,60,86,1);
 }
 
-/*********COLOUR OF QUOTES AND LINKS**/
-
-blockquote {
-  padding: .5rem 1rem;
-  margin: .8rem 0;
-  color: "black";
-  border-left: .25rem solid "black";
-}
+/*********COLOUR OF QUOTES AND LINKS FOR ABOUT BLOG WIDGET USING class .aboutblog **/
   
+.aboutblog blockquote { 
+padding: .5rem 1rem;
+margin: .8rem 0;
+color: black;
+border-left: .25rem solid black;
+}
+
+.aboutblog body {
+  color: black;
+}
+
+.aboutblog h1 {
+  color: black;
+}
+
+.aboutblog a:link {
+  color:peru;
+}
+
+.aboutblog a:visited {
+  color:peru;
+}
+
+.aboutblog a:hover {
+  color:peru;
+}
+
+.aboutblog a:active {
+  color:peru;
+}
+
+.aboutblog a:focus {
+  color:peru;
+}
   
 /******** maybe**/
-a:hover,
-a:focus {
-  color: "blue";
-}
 
-a {
-    color: "blue";
-}
-a:visited {
-    color: "blue";
-}
-a:hover {
-    color:"blue" ;
-}
-a:focus {
-    color: "blue";
-}
-a:active {
-    color: "blue";
-}
+
+a:link {color:goldenrod;}
+a:visited {color:goldenrod;}
+a:hover {color:goldenrod;}
+a:active {color:goldenrod;}
+a:focus {color:goldenrod;}
+

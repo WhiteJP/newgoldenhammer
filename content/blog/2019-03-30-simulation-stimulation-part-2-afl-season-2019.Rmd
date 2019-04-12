@@ -1,7 +1,7 @@
 ---
 title: 'Simulation Stimulation Part 2: AFL Season 2019'
 author: Joshua White
-date: '2019-03-30'
+date: '2019-04-04'
 slug: simulation-stimulation-part-2-afl-season-2019
 categories:
   - R
@@ -13,7 +13,9 @@ image:
   caption: ''
   focal_point: ''
 output:
-  html_document: default
+  blogdown::html_page: 
+    toc: true
+summary: "Taking the modelling techniques from part 1 and simulating the future: the 2019 Australian Football League Season"
 ---
 
 ```{r setup, include=FALSE}

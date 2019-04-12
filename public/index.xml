@@ -37,13 +37,419 @@
     </item>
     
     <item>
+      <title>Simulation Stimulation Part 3: Implementation. </title>
+      <link>/blog/simulation-stimulation-part-3-implementation/</link>
+      <pubDate>Fri, 12 Apr 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/blog/simulation-stimulation-part-3-implementation/</guid>
+      <description>
+
+&lt;div id=&#34;TOC&#34;&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;#normal-and-poisson-models&#34;&gt;Normal and Poisson models&lt;/a&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;#preparatory-steps&#34;&gt;Preparatory steps&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#possion-model-simulations&#34;&gt;Possion model simulations&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#normal-model-simulations&#34;&gt;Normal model simulations&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#rankings-model-tanh&#34;&gt;Rankings Model: Tanh&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#postscript-how-are-my-models-fairing-so-far&#34;&gt;Postscript: How are my models fairing so far?&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Parts 1 and 2 of this series made attempts to model, and them simulate, the 2018 and 2019 AFL seasons. These models were extremely simplistic, but were none-the-less interesting.&lt;/p&gt;
+&lt;div id=&#34;normal-and-poisson-models&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Normal and Poisson models&lt;/h1&gt;
+&lt;div id=&#34;preparatory-steps&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Preparatory steps&lt;/h2&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;#average H or A
+Average &amp;lt;- pointssummary %&amp;gt;% group_by(HorA, FororAgainst) %&amp;gt;% summarise(Points = mean(Points)) 
+Homeaveragefor &amp;lt;- as.numeric(Average[4, 3])
+Homeaverageagainst &amp;lt;- as.numeric(Average[3, 3])
+Awayaveragefor &amp;lt;- as.numeric(Average[2, 3])
+Awayaverageagainst &amp;lt;- as.numeric(Average[1, 3])
+
+####Get strengths####
+# create functions to get Strenths
+AttackstrengthH &amp;lt;- function(T){
+  as.numeric((pointssummary %&amp;gt;% 
+                filter(Team == T, HorA == &amp;quot;H&amp;quot;, FororAgainst == &amp;quot;For&amp;quot;) %&amp;gt;%
+                select(Points))/Homeaveragefor)
+}
+
+AttackstrengthA &amp;lt;- function(T){
+  as.numeric((pointssummary %&amp;gt;% 
+                filter(Team == T, HorA == &amp;quot;A&amp;quot;, FororAgainst == &amp;quot;For&amp;quot;) %&amp;gt;% 
+                select(Points))/Awayaveragefor)
+}
+
+DefencestrengthH &amp;lt;- function(T){
+  as.numeric(Homeaverageagainst/(pointssummary %&amp;gt;% 
+                                   filter(Team == T, HorA == &amp;quot;H&amp;quot;, FororAgainst == &amp;quot;Against&amp;quot;) %&amp;gt;% 
+                                   select(Points)))
+}
+
+DefencestrengthA &amp;lt;-function(T){
+  as.numeric(Awayaverageagainst/(pointssummary %&amp;gt;% 
+                                   filter(Team == T, HorA == &amp;quot;A&amp;quot;, FororAgainst == &amp;quot;Against&amp;quot;) %&amp;gt;%
+                                   select(Points)))
+}
+
+#get table with all strengths
+#create tibble
+strengths &amp;lt;- tibble(Team = unique(pointssummary$Team), AstrengthH = NA, 
+                    AstrengthA = NA, DstrengthH = NA, DstrengthA = NA)
+
+# populate with strengths
+strengths$AstrengthH &amp;lt;- map_dbl(strengths$Team, AttackstrengthH)
+strengths$AstrengthA &amp;lt;- map_dbl(strengths$Team, AttackstrengthA)
+strengths$DstrengthH &amp;lt;- map_dbl(strengths$Team, DefencestrengthH)
+strengths$DstrengthA &amp;lt;- map_dbl(strengths$Team, DefencestrengthA)
+
+####calculate paramater values: lambda and sd####
+lambdas.2019 &amp;lt;- add_column(fixture2019, homelambda = NA, homesd = NA, awaylambda = NA, awaysd = NA)
+
+#create lambda  and sd functions
+lambdahometeam &amp;lt;- function(HomeTeam, AwayTeam) {
+  Hometeamattackstrength &amp;lt;- as.numeric(strengths[strengths$Team == HomeTeam, &amp;quot;AstrengthH&amp;quot;])
+  Awayteamdefencestrength &amp;lt;- as.numeric(strengths[strengths$Team == AwayTeam, &amp;quot;DstrengthA&amp;quot;])
+  return(Homeaveragefor * Hometeamattackstrength / Awayteamdefencestrength)
+}
+
+lambdaawayteam &amp;lt;- function(AwayTeam, HomeTeam) {
+  Awayteamattackstrength &amp;lt;- as.numeric(strengths[strengths$Team == AwayTeam, &amp;quot;AstrengthA&amp;quot;])
+  Hometeamdefencestrength &amp;lt;- as.numeric(strengths[strengths$Team == HomeTeam, &amp;quot;DstrengthH&amp;quot;])
+  return(Awayaveragefor * Awayteamattackstrength / Hometeamdefencestrength)
+}
+
+sdhometeam &amp;lt;- function(HomeTeam, AwayTeam) {
+  Hometeamattack &amp;lt;- as.numeric(pointssummary %&amp;gt;% filter(Team == HomeTeam, HorA == &amp;quot;H&amp;quot;, FororAgainst == &amp;quot;For&amp;quot;) %&amp;gt;%
+                                 select(sd))
+  Awayteamdefence &amp;lt;- as.numeric(pointssummary %&amp;gt;% filter(Team == AwayTeam, HorA == &amp;quot;A&amp;quot;, FororAgainst == &amp;quot;Against&amp;quot;) %&amp;gt;%
+                                  select(sd))
+  # becuase n is equal can simply take average.
+  return(mean(Hometeamattack, Awayteamdefence))
+}
+
+sdawayteam &amp;lt;- function(AwayTeam, HomeTeam) {
+  Awayteamattack &amp;lt;- as.numeric(pointssummary %&amp;gt;% filter(Team == AwayTeam, HorA == &amp;quot;A&amp;quot;, FororAgainst == &amp;quot;For&amp;quot;) %&amp;gt;%
+                                 select(sd))
+  Hometeamdefence &amp;lt;- as.numeric(pointssummary %&amp;gt;%  filter(Team == HomeTeam, HorA == &amp;quot;H&amp;quot;, FororAgainst == &amp;quot;Against&amp;quot;) %&amp;gt;%
+                                  select(sd))
+  # becuase n is equal can simply take average.
+  return(mean(Awayteamattack, Hometeamdefence))
+}
+
+#populate lamba values 
+for (i in 1:nrow(lambdas.2019)) {
+  lambdas.2019$homelambda[i] &amp;lt;- lambdahometeam(lambdas.2019$Hometeam[i], lambdas.2019$Awayteam[i])
+  lambdas.2019$awaylambda[i] &amp;lt;- lambdaawayteam(lambdas.2019$Awayteam[i], lambdas.2019$Hometeam[i])
+  lambdas.2019$homesd[i] &amp;lt;- sdhometeam(lambdas.2019$Hometeam[i], lambdas.2019$Awayteam[i])
+  lambdas.2019$awaysd[i] &amp;lt;- sdawayteam(lambdas.2019$Awayteam[i], lambdas.2019$Hometeam[i])
+}&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;possion-model-simulations&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Possion model simulations&lt;/h2&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;####POISSON SIMULATION####
+Nsim.pois.2019 &amp;lt;- 10
+
+#set up simulation results table
+SimResults &amp;lt;- matrix(data = 0, nrow = Nsim.pois.2019, ncol = 18)
+colnames(SimResults) &amp;lt;- strengths$Team
+
+for (i in 1:Nsim.pois.2019){
+  
+  #create Ladder for each season
+  Ladder &amp;lt;- tibble(Team = strengths$Team, W = 0, L = 0, D = 0, Pts = 0,
+                   For = 0, Against = 0, Pct = 0)
+  
+  #simulate each season.
+  for (j in 1:nrow(lambdas.2019)) {
+    
+    #Here is the model working -- each score is simply a random drawing 
+    #from a poisson distribution described by our calculated lambas
+    homescore &amp;lt;- rpois(1, lambdas.2019$homelambda[j])
+    awayscore &amp;lt;- rpois(1, lambdas.2019$awaylambda[j])
+    hometeam &amp;lt;- lambdas.2019$Hometeam[j]
+    awayteam &amp;lt;- lambdas.2019$Awayteam[j]
+    
+    #populate scores
+    Ladder[Ladder$Team == hometeam,]$For &amp;lt;- Ladder[Ladder$Team == hometeam,]$For + homescore
+    Ladder[Ladder$Team == hometeam,]$Against &amp;lt;- Ladder[Ladder$Team == hometeam,]$Against + awayscore 
+    Ladder[Ladder$Team == awayteam,]$For &amp;lt;- Ladder[Ladder$Team == awayteam,]$For + awayscore
+    Ladder[Ladder$Team == awayteam,]$Against &amp;lt;- Ladder[Ladder$Team == awayteam,]$Against + homescore
+    
+    #populate table for draw
+    if (homescore == awayscore) {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$D &amp;lt;- Ladder[Ladder$Team == hometeam,]$D + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$D &amp;lt;- Ladder[Ladder$Team == awayteam,]$D + 1
+      
+      #populate table for hometeam win
+    } else if (homescore &amp;gt; awayscore) {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$W &amp;lt;- Ladder[Ladder$Team == hometeam,]$W + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$L &amp;lt;- Ladder[Ladder$Team == awayteam,]$L + 1
+      
+      #populate for away team win
+    } else {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$L &amp;lt;- Ladder[Ladder$Team == hometeam,]$L + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$W &amp;lt;- Ladder[Ladder$Team == awayteam,]$W + 1
+    }
+    
+  }
+  
+  #calculate points and percentage and order final table
+  #note that under AFL rules, if points are equal then ranked by percentage
+  Ladder$Pct &amp;lt;- Ladder$For / Ladder$Against * 100
+  Ladder$Pts &amp;lt;- (Ladder$W * 4) + (Ladder$D * 2)
+  FinalLadder &amp;lt;- Ladder %&amp;gt;% arrange(desc(Pts), desc(Pct))
+  
+  #populate simulation results table
+  for (k in 1:nrow(FinalLadder)) {
+    SimResults[i, FinalLadder$Team[k]] &amp;lt;- k
+  }
+} 
+
+#Print and inspect results of Simulations
+SimResultspois.2019 &amp;lt;- as_tibble(SimResults)
+
+
+#Make table summarising results of simulation
+Finalsimtable &amp;lt;- cbind.data.frame(MeanPos = colMeans(SimResultspois.2019),
+                                  MedianPos = apply(SimResultspois.2019, 2, median),
+                                  BestPos = apply(SimResultspois.2019, 2, min),
+                                  WorstPos = apply(SimResultspois.2019, 2, max),
+                                  percentWon =  apply(SimResultspois.2019 == 1, 2, sum)/nrow(SimResultspois.2019)*100,
+                                  percentTop4 = apply(SimResultspois.2019 &amp;lt;= 4, 2, sum)/nrow(SimResultspois.2019)*100,
+                                  percentTop8 = apply(SimResultspois.2019 &amp;lt;= 8, 2, sum)/nrow(SimResultspois.2019)*100,
+                                  percentBottom4 = apply(SimResultspois.2019 &amp;gt; 14, 2, sum)/nrow(SimResultspois.2019)*100,
+                                  percentLast = apply(SimResultspois.2019 == 18, 2, sum)/nrow(SimResultspois.2019)*100) %&amp;gt;%
+  cbind.data.frame(Team = strengths$Team) 
+
+Finalsimtablepois.2019 &amp;lt;- Finalsimtable[,c(10, 2, 1, 3:9)] %&amp;gt;% arrange(MedianPos, MeanPos)&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;normal-model-simulations&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Normal model simulations&lt;/h2&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;####NORM SIMULATIONS####
+Nsim.norm.2019 &amp;lt;- 10
+
+#set up simulation results table
+SimResults &amp;lt;- matrix(data = 0, nrow = Nsim.norm.2019, ncol = 18)
+colnames(SimResults) &amp;lt;- strengths$Team
+
+for (i in 1:Nsim.norm.2019){
+  
+  #create Ladder for each season
+  Ladder &amp;lt;- tibble(Team = strengths$Team, W = 0, L = 0, D = 0, Pts = 0,
+                   For = 0, Against = 0, Pct = 0)
+  
+  #simulate each season.
+  for (j in 1:nrow(lambdas.2019)) {
+    
+    #Here is the model working -- each score is simply a random drawing 
+    #from a normal dist characterised by our lambda as mean, and sd
+    homescore &amp;lt;- rnorm(1, mean = lambdas.2019$homelambda[j], sd = lambdas.2019$homesd[j])
+    awayscore &amp;lt;- rnorm(1, lambdas.2019$awaylambda[j], sd = lambdas.2019$awaysd[j])
+    hometeam &amp;lt;- lambdas.2019$Hometeam[j]
+    awayteam &amp;lt;- lambdas.2019$Awayteam[j]
+    
+    #populate scores
+    Ladder[Ladder$Team == hometeam,]$For &amp;lt;- Ladder[Ladder$Team == hometeam,]$For + homescore
+    Ladder[Ladder$Team == hometeam,]$Against &amp;lt;- Ladder[Ladder$Team == hometeam,]$Against + awayscore 
+    Ladder[Ladder$Team == awayteam,]$For &amp;lt;- Ladder[Ladder$Team == awayteam,]$For + awayscore
+    Ladder[Ladder$Team == awayteam,]$Against &amp;lt;- Ladder[Ladder$Team == awayteam,]$Against + homescore
+    
+    #populate table for draw
+    if (homescore == awayscore) {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$D &amp;lt;- Ladder[Ladder$Team == hometeam,]$D + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$D &amp;lt;- Ladder[Ladder$Team == awayteam,]$D + 1
+      
+      #populate table for hometeam win
+    } else if (homescore &amp;gt; awayscore) {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$W &amp;lt;- Ladder[Ladder$Team == hometeam,]$W + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$L &amp;lt;- Ladder[Ladder$Team == awayteam,]$L + 1
+      
+      #populate for away team win
+    } else {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$L &amp;lt;- Ladder[Ladder$Team == hometeam,]$L + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$W &amp;lt;- Ladder[Ladder$Team == awayteam,]$W + 1
+    }
+    
+  }
+  
+  #calculate points and percentage and order final table
+  #note that under AFL rules, if points are equal then ranked by percentage
+  Ladder$Pct &amp;lt;- Ladder$For / Ladder$Against * 100
+  Ladder$Pts &amp;lt;- (Ladder$W * 4) + (Ladder$D * 2)
+  FinalLadder &amp;lt;- Ladder %&amp;gt;% arrange(desc(Pts), desc(Pct))
+  
+  #populate simulation results table
+  for (k in 1:nrow(FinalLadder)) {
+    SimResults[i, FinalLadder$Team[k]] &amp;lt;- k
+  }
+} 
+
+#Print and inspect results of Simulation
+SimResultsnorm.2019 &amp;lt;- as_tibble(SimResults)
+
+
+#Make tabe summarising results of simulation
+Finalsimtable.2019 &amp;lt;- cbind.data.frame(MeanPos = colMeans(SimResultsnorm.2019),
+                                  MedianPos = apply(SimResultsnorm.2019, 2, median),
+                                  BestPos = apply(SimResultsnorm.2019, 2, min),
+                                  WorstPos = apply(SimResultsnorm.2019, 2, max),
+                                  percentWon =  apply(SimResultsnorm.2019 == 1, 2, sum)/nrow(SimResultsnorm.2019)*100,
+                                  percentTop4 = apply(SimResultsnorm.2019 &amp;lt;= 4, 2, sum)/nrow(SimResultsnorm.2019)*100,
+                                  percentTop8 = apply(SimResultsnorm.2019 &amp;lt;= 8, 2, sum)/nrow(SimResultsnorm.2019)*100,
+                                  percentBottom4 = apply(SimResultsnorm.2019 &amp;gt; 14, 2, sum)/nrow(SimResultsnorm.2019)*100,
+                                  percentLast = apply(SimResultsnorm.2019 == 18, 2, sum)/nrow(SimResultsnorm.2019)*100) %&amp;gt;%
+  cbind.data.frame(Team = strengths$Team)
+
+Finalsimtablenorm.2019 &amp;lt;- Finalsimtable[,c(10, 2, 1, 3:9)] %&amp;gt;% arrange(MedianPos, MeanPos)&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;rankings-model-tanh&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Rankings Model: Tanh&lt;/h1&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;####TANH MODEL SIMULATIONS####
+#set some params and functions
+drawrate &amp;lt;- 7 / (198*5)
+drawparam &amp;lt;- atanh(-drawrate)
+probwin &amp;lt;- function(a, b, w, d = drawparam){
+  return((tanh(((a - b)/w) + d) + 1)/ 2)}
+
+# reverse ladder order to get rankings needed for the model
+rankings &amp;lt;- rev(finalTable2018$Team)
+
+##SIMULATIONS## 
+Nsim.tanh.2019 &amp;lt;- 10 # for each weight parameter looped over
+w &amp;lt;- 20
+#create table for each simulation
+gameresults.tanh &amp;lt;- matrix(data = 0, nrow = Nsim.tanh.2019, ncol = nrow(fixture2019))
+
+#initilise lists
+gameresultslist&amp;lt;- list()
+SimResultsList.2019 &amp;lt;- list()
+Finalsimlist.2019 &amp;lt;- list()
+
+#loop over weight factor 
+  for (i in 1:nrow(fixture2019)) {
+    PW &amp;lt;- probwin(match(fixture2019[i, 1], rankings),
+                  match(fixture2019[i, 2], rankings), 
+                  w)
+    PL &amp;lt;- probwin(match(fixture2019[i, 2], rankings),
+                  match(fixture2019[i, 1], rankings), 
+                  w)
+    PD &amp;lt;- 1 - PW - PL 
+    gameresults.tanh[,i] &amp;lt;- sample(x = c(&amp;quot;W&amp;quot;, &amp;quot;L&amp;quot;, &amp;quot;D&amp;quot;), size = Nsim.tanh.2019, replace = TRUE, prob = c(PW, PL, PD))
+  }
+  
+  gameresultslist[[w]] &amp;lt;- gameresults.tanh
+  
+  #create sim results
+  SimResults &amp;lt;- matrix(data = 0, nrow = Nsim.tanh.2019, ncol = 18)
+  colnames(SimResults) &amp;lt;- strengths$Team
+  
+  for (i in 1:nrow(gameresults.tanh)) {
+    
+    #create the ladder for each season.
+    Ladder &amp;lt;- tibble(Team = Ladder$Team, W = 0, L = 0, D = 0, Pts = 0)
+    
+    for (j in 1:ncol(gameresults.tanh)){
+      
+      hometeam.tanh &amp;lt;- as.character(fixture2019[j,1])
+      awayteam.tanh &amp;lt;- as.character(fixture2019[j,2])
+      
+      if(gameresultslist[[w]][i,j] == &amp;quot;W&amp;quot;) {  
+        Ladder[Ladder$Team == hometeam.tanh,]$W &amp;lt;- Ladder[Ladder$Team == hometeam.tanh,]$W + 1 
+        Ladder[Ladder$Team == awayteam.tanh,]$L &amp;lt;- Ladder[Ladder$Team == awayteam.tanh,]$L + 1
+        
+      } else if (gameresultslist[[w]][i,j] == &amp;quot;L&amp;quot;) {
+        Ladder[Ladder$Team == hometeam.tanh,]$L &amp;lt;- Ladder[Ladder$Team == hometeam.tanh,]$L + 1
+        Ladder[Ladder$Team == awayteam.tanh,]$W &amp;lt;- Ladder[Ladder$Team == awayteam.tanh,]$W + 1 
+        
+      } else {
+        Ladder[Ladder$Team == hometeam.tanh,]$D &amp;lt;- Ladder[Ladder$Team == hometeam.tanh,]$D + 1
+        Ladder[Ladder$Team == awayteam.tanh,]$D &amp;lt;- Ladder[Ladder$Team == awayteam.tanh,]$D + 1
+        
+      }
+      
+    } 
+    
+    #calculate points and percentage and order final table
+    #note that under AFL rules, if points are equal then ranked by percentage
+    Ladder$Pts &amp;lt;- (Ladder$W * 4) + (Ladder$D * 2)
+    FinalLadder &amp;lt;- Ladder %&amp;gt;% arrange(desc(Pts), desc(rankings))
+    
+    #populate simulation results table
+    for (k in 1:nrow(FinalLadder)) {
+      SimResults[i, FinalLadder$Team[k]] &amp;lt;- k
+      SimResultsList.2019[[w]] &amp;lt;- SimResults
+
+    }
+    
+  }
+  
+  #Make tabe summarising results of simulation
+  Finalsimtabletanh &amp;lt;- cbind.data.frame(MeanPos = colMeans(SimResultsList.2019[[w]]),
+                                        MedianPos = apply(SimResultsList.2019[[w]], 2, median),
+                                        BestPos = apply(SimResultsList.2019[[w]], 2, min),
+                                        WorstPos = apply(SimResultsList.2019[[w]], 2, max),
+                                        percentWon =  apply(SimResultsList.2019[[w]] == 1, 2, sum)/nrow(SimResultsList.2019[[w]])*100,
+                                        percentTop4 = apply(SimResultsList.2019[[w]] &amp;lt;= 4, 2, sum)/nrow(SimResultsList.2019[[w]])*100,
+                                        percentTop8 = apply(SimResultsList.2019[[w]] &amp;lt;= 8, 2, sum)/nrow(SimResultsList.2019[[w]])*100,
+                                        percentBottom4 = apply(SimResultsList.2019[[w]] &amp;gt; 14, 2, sum)/nrow(SimResultsList.2019[[w]])*100,
+                                        percentLast = apply(SimResultsList.2019[[w]] == 18, 2, sum)/nrow(SimResultsList.2019[[w]])*100) %&amp;gt;%
+    cbind.data.frame(Team = strengths$Team)  
+  
+  Finalsimtabletanh &amp;lt;- Finalsimtabletanh[,c(10, 2, 1, 3:9)] %&amp;gt;% arrange(MedianPos, MeanPos)
+  Finalsimlist.2019[[w]] &amp;lt;- Finalsimtabletanh&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;postscript-how-are-my-models-fairing-so-far&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Postscript: How are my models fairing so far?&lt;/h1&gt;
+&lt;p&gt;We are now 4 weeks into the 22 week AFL season, and the models are not looking so good. THis is really quite unsurprising — The first few weeks of the AFL season are always a tumultous time. Here&lt;/p&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+    <item>
       <title>Simulation Stimulation Part 2: AFL Season 2019</title>
       <link>/blog/simulation-stimulation-part-2-afl-season-2019/</link>
-      <pubDate>Sat, 30 Mar 2019 00:00:00 +0000</pubDate>
+      <pubDate>Thu, 04 Apr 2019 00:00:00 +0000</pubDate>
       
       <guid>/blog/simulation-stimulation-part-2-afl-season-2019/</guid>
       <description>
 
+&lt;div id=&#34;TOC&#34;&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;#the-models-a-reminder&#34;&gt;The Models: A Reminder&lt;/a&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;#poisson-distributed-team-scores&#34;&gt;Poisson Distributed Team Scores&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#normally-distributed-team-scores&#34;&gt;Normally Distributed team scores&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#rankings-model-tanh&#34;&gt;Rankings model: tanh&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#results&#34;&gt;2019 Results&lt;/a&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;#poisson-model&#34;&gt;Poisson model&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#normal-model&#34;&gt;Normal model&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#tanh-model&#34;&gt;Tanh model&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#comparing-the-three-models.&#34;&gt;Comparing the three models.&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
 
 &lt;p&gt;In part one of this series, I applied three different models to the 2018 AFL season. In this part, I apply these models to the 2019 AFL fixture to attempt to make some predictions about the standings at the end of the year.&lt;/p&gt;
 &lt;p&gt;Now Ideally, I would have applied these models to the last 10 (or more) years of AFL data to see which one better predicts results for the upcoming year — but who has time for that — So we are just going to go ahead.&lt;/p&gt;
@@ -71,43 +477,43 @@
 &lt;h3&gt;Poisson model&lt;/h3&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimtablepois.2019&lt;/code&gt;&lt;/pre&gt;
 &lt;pre&gt;&lt;code&gt;##                      Team MedianPos MeanPos BestPos WorstPos percentWon
-## 1                Richmond       1.0     1.4       1        2         60
-## 2               Melbourne       2.0     2.4       1        4         20
-## 3                 Geelong       3.0     3.2       2        5          0
-## 4                Hawthorn       5.0     5.0       3        9          0
-## 5             Collingwood       5.0     5.2       1        7         10
-## 6              West Coast       6.0     5.7       1       10         10
-## 7         North Melbourne       8.0     7.7       3       10          0
-## 8  Greater Western Sydney       8.5     8.4       5       12          0
-## 9                  Sydney       9.0     9.4       7       12          0
-## 10          Port Adelaide       9.5     9.2       4       12          0
-## 11               Adelaide       9.5     9.5       6       12          0
-## 12               Essendon      11.0    10.9       8       12          0
-## 13         Brisbane Lions      13.0    13.4      13       14          0
-## 14              Fremantle      14.0    14.2      13       16          0
-## 15               St Kilda      15.0    15.2      14       16          0
-## 16       Western Bulldogs      15.5    15.2      13       16          0
-## 17                Carlton      17.5    17.5      17       18          0
-## 18             Gold Coast      17.5    17.5      17       18          0
+## 1                Richmond       1.0     1.9       1        5         60
+## 2               Melbourne       2.0     2.4       1        5         10
+## 3                 Geelong       3.0     3.9       1        8         20
+## 4              West Coast       4.0     3.5       2        4          0
+## 5                Hawthorn       5.0     5.3       1       11         10
+## 6             Collingwood       6.0     5.8       3        9          0
+## 7  Greater Western Sydney       7.5     7.9       6       11          0
+## 8         North Melbourne       8.0     8.3       6       11          0
+## 9           Port Adelaide       9.0     8.7       6       12          0
+## 10                 Sydney       9.5     9.5       6       12          0
+## 11               Adelaide      10.5    10.2       8       12          0
+## 12               Essendon      11.0    10.6       8       12          0
+## 13         Brisbane Lions      13.0    13.3      13       15          0
+## 14               St Kilda      14.0    14.4      13       16          0
+## 15              Fremantle      15.0    14.6      13       16          0
+## 16       Western Bulldogs      16.0    15.7      14       16          0
+## 17             Gold Coast      17.0    17.2      17       18          0
+## 18                Carlton      18.0    17.8      17       18          0
 ##    percentTop4 percentTop8 percentBottom4 percentLast Model
-## 1          100         100              0           0  pois
-## 2          100         100              0           0  pois
-## 3           90         100              0           0  pois
-## 4           40          90              0           0  pois
-## 5           20         100              0           0  pois
-## 6           30          90              0           0  pois
-## 7           10          70              0           0  pois
+## 1           90         100              0           0  pois
+## 2           90         100              0           0  pois
+## 3           70         100              0           0  pois
+## 4          100         100              0           0  pois
+## 5           20          90              0           0  pois
+## 6           30          80              0           0  pois
+## 7            0          70              0           0  pois
 ## 8            0          50              0           0  pois
-## 9            0          30              0           0  pois
-## 10          10          30              0           0  pois
+## 9            0          40              0           0  pois
+## 10           0          30              0           0  pois
 ## 11           0          30              0           0  pois
 ## 12           0          10              0           0  pois
-## 13           0           0              0           0  pois
+## 13           0           0             10           0  pois
 ## 14           0           0             40           0  pois
-## 15           0           0             80           0  pois
-## 16           0           0             80           0  pois
-## 17           0           0            100          50  pois
-## 18           0           0            100          50  pois&lt;/code&gt;&lt;/pre&gt;
+## 15           0           0             60           0  pois
+## 16           0           0             90           0  pois
+## 17           0           0            100          20  pois
+## 18           0           0            100          80  pois&lt;/code&gt;&lt;/pre&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;pois2019graph&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-part-2-afl-season-2019_files/figure-html/poisresults-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
@@ -115,43 +521,43 @@
 &lt;h3&gt;Normal model&lt;/h3&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimtablenorm.2019&lt;/code&gt;&lt;/pre&gt;
 &lt;pre&gt;&lt;code&gt;##                      Team MedianPos MeanPos BestPos WorstPos percentWon
-## 1                Richmond       1.0     1.4       1        2         60
-## 2               Melbourne       2.0     2.4       1        4         20
-## 3                 Geelong       3.0     3.2       2        5          0
-## 4                Hawthorn       5.0     5.0       3        9          0
-## 5             Collingwood       5.0     5.2       1        7         10
-## 6              West Coast       6.0     5.7       1       10         10
-## 7         North Melbourne       8.0     7.7       3       10          0
-## 8  Greater Western Sydney       8.5     8.4       5       12          0
-## 9                  Sydney       9.0     9.4       7       12          0
-## 10          Port Adelaide       9.5     9.2       4       12          0
-## 11               Adelaide       9.5     9.5       6       12          0
-## 12               Essendon      11.0    10.9       8       12          0
-## 13         Brisbane Lions      13.0    13.4      13       14          0
-## 14              Fremantle      14.0    14.2      13       16          0
-## 15               St Kilda      15.0    15.2      14       16          0
-## 16       Western Bulldogs      15.5    15.2      13       16          0
-## 17                Carlton      17.5    17.5      17       18          0
-## 18             Gold Coast      17.5    17.5      17       18          0
+## 1                Richmond       1.0     1.9       1        5         60
+## 2               Melbourne       2.0     2.4       1        5         10
+## 3                 Geelong       3.0     3.9       1        8         20
+## 4              West Coast       4.0     3.5       2        4          0
+## 5                Hawthorn       5.0     5.3       1       11         10
+## 6             Collingwood       6.0     5.8       3        9          0
+## 7  Greater Western Sydney       7.5     7.9       6       11          0
+## 8         North Melbourne       8.0     8.3       6       11          0
+## 9           Port Adelaide       9.0     8.7       6       12          0
+## 10                 Sydney       9.5     9.5       6       12          0
+## 11               Adelaide      10.5    10.2       8       12          0
+## 12               Essendon      11.0    10.6       8       12          0
+## 13         Brisbane Lions      13.0    13.3      13       15          0
+## 14               St Kilda      14.0    14.4      13       16          0
+## 15              Fremantle      15.0    14.6      13       16          0
+## 16       Western Bulldogs      16.0    15.7      14       16          0
+## 17             Gold Coast      17.0    17.2      17       18          0
+## 18                Carlton      18.0    17.8      17       18          0
 ##    percentTop4 percentTop8 percentBottom4 percentLast Model
-## 1          100         100              0           0  norm
-## 2          100         100              0           0  norm
-## 3           90         100              0           0  norm
-## 4           40          90              0           0  norm
-## 5           20         100              0           0  norm
-## 6           30          90              0           0  norm
-## 7           10          70              0           0  norm
+## 1           90         100              0           0  norm
+## 2           90         100              0           0  norm
+## 3           70         100              0           0  norm
+## 4          100         100              0           0  norm
+## 5           20          90              0           0  norm
+## 6           30          80              0           0  norm
+## 7            0          70              0           0  norm
 ## 8            0          50              0           0  norm
-## 9            0          30              0           0  norm
-## 10          10          30              0           0  norm
+## 9            0          40              0           0  norm
+## 10           0          30              0           0  norm
 ## 11           0          30              0           0  norm
 ## 12           0          10              0           0  norm
-## 13           0           0              0           0  norm
+## 13           0           0             10           0  norm
 ## 14           0           0             40           0  norm
-## 15           0           0             80           0  norm
-## 16           0           0             80           0  norm
-## 17           0           0            100          50  norm
-## 18           0           0            100          50  norm&lt;/code&gt;&lt;/pre&gt;
+## 15           0           0             60           0  norm
+## 16           0           0             90           0  norm
+## 17           0           0            100          20  norm
+## 18           0           0            100          80  norm&lt;/code&gt;&lt;/pre&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;norm2019graph&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-part-2-afl-season-2019_files/figure-html/normresults-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
 &lt;/div&gt;
@@ -161,24 +567,24 @@
 &lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
 ##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
 ##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
-##  1 Richm~        2        2.6        1         5          30           80
-##  2 West ~        2.5      3.5        1        10          20           80
-##  3 Hawth~        3.5      5.5        2        14           0           60
-##  4 Melbo~        5.5      5          1         8          10           40
-##  5 Colli~        5.5      5.8        1        12          20           50
-##  6 Great~        6.5      5.8        1         9          10           30
-##  7 Port ~        6.5      8.2        2        14           0           10
-##  8 North~        6.5      8.6        4        17           0           10
-##  9 Sydney        8        7.3        1        15          10           40
-## 10 Geelo~        9.5      9.9        5        17           0            0
-## 11 Frema~       11.5     12.3        8        18           0            0
-## 12 Adela~       12.5     12.4        8        18           0            0
-## 13 Essen~       12.5     12.8        8        18           0            0
-## 14 Gold ~       13.5     13.5        7        18           0            0
-## 15 Weste~       14       13.3        9        16           0            0
-## 16 Brisb~       14       14.2       10        18           0            0
-## 17 Carlt~       15       13.8        6        17           0            0
-## 18 St Ki~       17.5     16.5       10        18           0            0
+##  1 Richm~        2        3.3        1        10          30           70
+##  2 West ~        3.5      4.3        2         7           0           60
+##  3 Hawth~        3.5      4.9        1        13          40           70
+##  4 Geelo~        5        7.3        2        13           0           20
+##  5 Melbo~        6        6          1        12          10           40
+##  6 Sydney        6.5      7.4        3        16           0           20
+##  7 Colli~        8        6.8        2        10           0           30
+##  8 Port ~        9        8          2        14           0           30
+##  9 Great~        9.5      9          3        15           0           20
+## 10 North~       10       10.4        6        18           0            0
+## 11 Weste~       10.5     10.7        5        17           0            0
+## 12 Frema~       12       10.1        1        16          20           20
+## 13 Adela~       12.5     12          4        18           0           10
+## 14 Essen~       13.5     12.4        6        17           0            0
+## 15 Brisb~       15.5     13          3        18           0           10
+## 16 Gold ~       15.5     14.7       10        17           0            0
+## 17 St Ki~       16.5     14.9        8        18           0            0
+## 18 Carlt~       16.5     15.8       12        18           0            0
 ## # ... with 4 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
 ## #   $percentLast &amp;lt;dbl&amp;gt;, $Model &amp;lt;chr&amp;gt;&lt;/code&gt;&lt;/pre&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;tanh2019graph&lt;/code&gt;&lt;/pre&gt;
@@ -244,32 +650,55 @@ ggplot(comparisonSimTable.2019.tidy, aes(x = Team, y = Percent, fill = Model)) +
       <guid>/blog/simulation-stimulation-afl-season-2018/</guid>
       <description>
 
+&lt;div id=&#34;TOC&#34;&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;#the-models&#34;&gt;The Models&lt;/a&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;#poisson-distributed-team-scores&#34;&gt;Poisson Distributed Team Scores&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#normally-distributed-team-scores&#34;&gt;Normally Distributed team scores&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#rankings-model-tanh&#34;&gt;Rankings model: tanh&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#the-data&#34;&gt;The Data&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#results&#34;&gt;Results&lt;/a&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;#poisson-model&#34;&gt;Poisson model&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#normal-model&#34;&gt;Normal model&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#tanh-model&#34;&gt;Tanh model&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#comparing-the-three-models.&#34;&gt;Comparing the three models.&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#graphs&#34;&gt;Graphs&lt;/a&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;#poisson-results-graph&#34;&gt;Poisson Results Graph&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#norm-results-graph&#34;&gt;Norm Results Graph&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#rankings-model-graph&#34;&gt;Rankings Model Graph&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#comparison-graphs&#34;&gt;Comparison Graphs&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;#conclusion&#34;&gt;Conclusion&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
 
 &lt;p&gt;Recently I was, as I am (unfortunately) rather wont to do, aimlessly watching YouTube videos when I came across these &lt;a href=&#34;https://www.youtube.com/watch?v=Vv9wpQIGZDw&#34;&gt;two&lt;/a&gt; &lt;a href=&#34;https://www.youtube.com/watch?v=Zs2M7gWSbTg&#34;&gt;videos&lt;/a&gt; by Numberphile. Here, the authors discuss their attempts at modelling and simulating seasons of the English Premier League.&lt;/p&gt;
-&lt;p&gt;As an avid &lt;a href=&#34;https://en.wikipedia.org/wiki/Australian_Football_League&#34;&gt;AFL&lt;/a&gt; fan, and with the upcoming season fast approaching (edit, now underway, &lt;a href=&#34;https://www.urbandictionary.com/define.php?term=carn&#34;&gt;carn&lt;/a&gt; &lt;a href=&#34;https://www.afl.com.au/news/2019-03-22/match-report-collingwood-v-geelong&#34;&gt;the cats!&lt;/a&gt;), why not try to apply these methods to the AFL season. This post will be the first of a three part series. In part 1, I will discuss the models and compare their results to the actual data from the 2018 season. Part 2 will apply the models to the 2019 season. And part 3 will go through the details and show the code.&lt;/p&gt;
+&lt;p&gt;As an avid &lt;a href=&#34;https://en.wikipedia.org/wiki/Australian_Football_League&#34;&gt;AFL&lt;/a&gt; fan, and with the upcoming season fast approaching (edit, now well underway, &lt;a href=&#34;https://www.urbandictionary.com/define.php?term=carn&#34;&gt;carn&lt;/a&gt; &lt;a href=&#34;https://www.afl.com.au/news/2019-03-22/match-report-collingwood-v-geelong&#34;&gt;the cats!&lt;/a&gt;), why not try to apply these methods to the AFL season. This post will be the first of a three part series doing so. In part 1, I will discuss the models and compare their results to the actual data from the 2018 season. Part 2 will apply the models to the 2019 season. And part 3 will go through the implementation details and show my code.&lt;/p&gt;
 &lt;div id=&#34;the-models&#34; class=&#34;section level2&#34;&gt;
 &lt;h2&gt;The Models&lt;/h2&gt;
 &lt;div id=&#34;poisson-distributed-team-scores&#34; class=&#34;section level3&#34;&gt;
 &lt;h3&gt;Poisson Distributed Team Scores&lt;/h3&gt;
-&lt;p&gt;Okay, lets discuss the model. Basically, each team’s score in every game is modeled as a random drawing from a Poisson distribution — i.e. &lt;span class=&#34;math inline&#34;&gt;\(P(k) = e^{-\lambda} \frac{\lambda^k}{k!}\)&lt;/span&gt;, where k is the number of points scored. A Poisson distribution is great for simple modelling because it only requires estimating one parameter, &lt;span class=&#34;math inline&#34;&gt;\(\lambda\)&lt;/span&gt;. On the other hand, it isn’t exactly suited to the AFL context because the model assumes that all events (in this case, scoring a point) occur independently. In AFL, a goal in AFL is worth 6 points, violating this assumption.&lt;/p&gt;
-&lt;p&gt;In any case, let’s press on with that in mind. We calculate &lt;span class=&#34;math inline&#34;&gt;\(\lambda\)&lt;/span&gt; for each game, based on the points scored for and against, at home and away, for each team in 2018:&lt;/p&gt;
-&lt;p&gt;&lt;span class=&#34;math inline&#34;&gt;\(\lambda_{home team} =\)&lt;/span&gt; League Average points scored at home &lt;span class=&#34;math inline&#34;&gt;\(\times\)&lt;/span&gt; home team attack strength at home &lt;span class=&#34;math inline&#34;&gt;\(\times\)&lt;/span&gt; awayteam attack strength away&lt;/p&gt;
+&lt;p&gt;Okay, lets discuss the first model. Basically, each team’s score in every game is modeled as a random drawing from a Poisson distribution — i.e. &lt;span class=&#34;math inline&#34;&gt;\(P(k) = e^{-\lambda} \frac{\lambda^k}{k!}\)&lt;/span&gt;, where k is the number of points scored. A Poisson distribution is great for fast and simple modelling because it requires the estimation of only one parameter, &lt;span class=&#34;math inline&#34;&gt;\(\lambda\)&lt;/span&gt;. On the other hand, it isn’t exactly suited to the AFL context because the model assumes that all ‘events’ (in this case, scoring a point) occur independently. In AFL, a goal is worth 6 points, violating this assumption.&lt;/p&gt;
+&lt;p&gt;In any case, let’s press on with that in mind (we are not looking for a perfect model here). We calculate &lt;span class=&#34;math inline&#34;&gt;\(\lambda\)&lt;/span&gt; for each game, based on the points scored for and against, at home and away, for each team in 2018:&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;math inline&#34;&gt;\(\lambda_{home team} =\)&lt;/span&gt; League Average points scored at home &lt;span class=&#34;math inline&#34;&gt;\(\times\)&lt;/span&gt; home team attack strength at home &lt;span class=&#34;math inline&#34;&gt;\(\times\)&lt;/span&gt; away team defense strength away&lt;/p&gt;
 &lt;p&gt;&lt;span class=&#34;math inline&#34;&gt;\(\lambda_{away team} =\)&lt;/span&gt; League Average points scored away &lt;span class=&#34;math inline&#34;&gt;\(\times\)&lt;/span&gt; away team attack strength away &lt;span class=&#34;math inline&#34;&gt;\(\times\)&lt;/span&gt; hometeam defense strength at home&lt;/p&gt;
 &lt;p&gt;As you can see, the model takes into account the general home advantage as well as each particular team’s attack and defensive strengths at home and away. The strength parameters refereed to above are simply the averages for that particular team, relative to the league-wide average.&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;normally-distributed-team-scores&#34; class=&#34;section level3&#34;&gt;
 &lt;h3&gt;Normally Distributed team scores&lt;/h3&gt;
-&lt;p&gt;This model is a simple extension to the Poisson-based model above, and should be superior to it because:&lt;/p&gt;
+&lt;p&gt;This model is a simple extension to the Poisson-based model above. However, it should be superior to it because:&lt;/p&gt;
 &lt;ol style=&#34;list-style-type: decimal&#34;&gt;
 &lt;li&gt;There is no assumption of independence, and&lt;/li&gt;
 &lt;li&gt;It has an extra parameter to capture differences among teams in the variance of their defense and attack strength.&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;Here, it is assumed that team scores are normally distributed around &lt;span class=&#34;math inline&#34;&gt;\(\lambda\)&lt;/span&gt; as defined above, with a standard deviation calculated as the pooled standard deviation of that teams ‘for’ scores standard deviation, and the opponents ‘against’ scores standard deviation: &lt;span class=&#34;math display&#34;&gt;\[Points_{teamA} \sim \mathcal{N}(\mu=\lambda,\,\sigma = \sigma_p)\,\]&lt;/span&gt; where: &lt;br&gt; &lt;span class=&#34;math display&#34;&gt;\[\sigma_{p}=\frac{\sigma_{teamAfor} + \sigma_{teamBagainst}}{2}\]&lt;/span&gt;&lt;/p&gt;
+&lt;p&gt;Here, it is assumed that team scores are normally distributed around &lt;span class=&#34;math inline&#34;&gt;\(\lambda\)&lt;/span&gt; as defined above, with a standard deviation calculated as the pooled standard deviation of that teams ‘for’ scores standard deviation, and the opponents ‘against’ scores standard deviation: &lt;span class=&#34;math display&#34;&gt;\[Points_{teamA} \sim \mathcal{N}(\mu=\lambda,\,\sigma = \sigma_p)\,\]&lt;/span&gt; where: &lt;br&gt; &lt;span class=&#34;math display&#34;&gt;\[\sigma_{p}=\frac{\sigma_{teamA\&amp;gt;for} + \sigma_{teamB\&amp;gt;against}}{2}\]&lt;/span&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;div id=&#34;rankings-model-tanh&#34; class=&#34;section level3&#34;&gt;
 &lt;h3&gt;Rankings model: tanh&lt;/h3&gt;
 &lt;p&gt;This model simply relies on the ordinal data of last years final Ladder: Carlton, the wooden spoon winners (i.e. the last placeholders, out of 18 teams) get a ranking of 1, and Richmond, who finished on top of the table get a ranking of 18. Then, with this information, the probability of team A winning is modelled as follows:&lt;/p&gt;
-&lt;p&gt;&lt;span class=&#34;math display&#34;&gt;\[P(A\&amp;gt;wins)=\frac{tanh(\frac{a-b}{w} + d)+1}{2}\]&lt;/span&gt; where,&lt;br&gt; A = home team &lt;br&gt; a = home team ranking &lt;br&gt; b = away team ranking &lt;br&gt; w = weighting parameter (the higher the number the less weight placed on the rankings) &lt;br&gt; d = draw paramater, to allow for possibility of draws, calculated as so that &lt;span class=&#34;math inline&#34;&gt;\(tanh(d) = -draw\&amp;gt;rate\)&lt;/span&gt;&lt;/p&gt;
+&lt;p&gt;&lt;span class=&#34;math display&#34;&gt;\[P(A\&amp;gt;wins)=\frac{tanh(\frac{a-b}{w} + d)+1}{2}\]&lt;/span&gt; where:&lt;br&gt; A = home team &lt;br&gt; a = home team ranking &lt;br&gt; b = away team ranking &lt;br&gt; w = weighting parameter (the higher the number the less weight placed on the rankings) &lt;br&gt; d = draw paramater, to allow for possibility of draws, calculated as so that &lt;span class=&#34;math inline&#34;&gt;\(tanh(d) = -draw\&amp;gt;rate\)&lt;/span&gt;&lt;/p&gt;
 &lt;p&gt;The draw rate, &lt;span class=&#34;math inline&#34;&gt;\(\frac{7}{990} \approx 0.007\)&lt;/span&gt;, was based on the likelihood of drawing a game over the past 5 years.&lt;/p&gt;
 &lt;p&gt;The probability of B winning is calculated in the same manner as above, except with &lt;span class=&#34;math inline&#34;&gt;\(b-a\)&lt;/span&gt;.&lt;/p&gt;
 &lt;p&gt;Finally, a draw is the remaining probability: &lt;span class=&#34;math inline&#34;&gt;\(P(Draw)= 1 - P(A\&amp;gt;wins) - P(B\&amp;gt;wins)\)&lt;/span&gt;. This means that the draw rate will be greater for greater rankings differentials, and greater for greater weight parameters.&lt;/p&gt;
@@ -310,44 +739,45 @@ ggplot(comparisonSimTable.2019.tidy, aes(x = Team, y = Percent, fill = Model)) +
 &lt;/div&gt;
 &lt;div id=&#34;results&#34; class=&#34;section level2&#34;&gt;
 &lt;h2&gt;Results&lt;/h2&gt;
+&lt;p&gt;Ok, so we are going to simulate 1000 seasons for each of these models (I wish I could do more, but my current computer lacks power, and my code is far from effiecient 😢 ). Here are the results from these simulations (for details on the code see part III of this series):&lt;/p&gt;
 &lt;div id=&#34;poisson-model&#34; class=&#34;section level3&#34;&gt;
 &lt;h3&gt;Poisson model&lt;/h3&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimtablepois.2018&lt;/code&gt;&lt;/pre&gt;
 &lt;pre&gt;&lt;code&gt;##                      Team MedianPos MeanPos BestPos WorstPos percentWon
-## 1               Melbourne       1.5     1.9       1        5         50
-## 2                Richmond       2.0     2.0       1        3         40
-## 3             Collingwood       4.0     4.1       2        6          0
-## 4                 Geelong       4.5     4.0       1        7         10
-## 5              West Coast       5.0     4.9       2        7          0
-## 6                Hawthorn       5.0     5.2       2        8          0
-## 7         North Melbourne       7.5     6.9       4       10          0
-## 8  Greater Western Sydney       7.5     7.6       6        9          0
-## 9           Port Adelaide      10.0     9.8       7       12          0
-## 10               Adelaide      10.5    10.3       8       12          0
-## 11               Essendon      10.5    10.3       8       12          0
-## 12                 Sydney      11.5    11.1       9       13          0
-## 13              Fremantle      13.0    13.2      12       15          0
-## 14         Brisbane Lions      14.0    14.0      13       15          0
-## 15       Western Bulldogs      15.0    14.8      14       16          0
+## 1               Melbourne       1.0     1.5       1        3         70
+## 2                Richmond       2.0     2.4       1        5         30
+## 3             Collingwood       3.0     3.1       2        5          0
+## 4              West Coast       4.5     4.4       2        6          0
+## 5                 Geelong       5.0     4.6       2        7          0
+## 6                Hawthorn       5.5     5.2       4        6          0
+## 7         North Melbourne       7.0     7.6       6       11          0
+## 8           Port Adelaide       8.0     8.5       6       11          0
+## 9  Greater Western Sydney       8.5     9.0       7       12          0
+## 10                 Sydney      10.0    10.2       9       12          0
+## 11               Adelaide      11.0    10.6       8       12          0
+## 12               Essendon      11.0    11.0       9       13          0
+## 13         Brisbane Lions      13.0    13.5      13       15          0
+## 14              Fremantle      14.0    13.5      12       14          0
+## 15       Western Bulldogs      15.0    15.0      14       16          0
 ## 16               St Kilda      16.0    16.0      15       17          0
 ## 17                Carlton      17.5    17.4      16       18          0
 ## 18             Gold Coast      17.5    17.5      17       18          0
 ##    percentTop4 percentTop8 percentBottom4 percentLast
-## 1           90         100              0           0
-## 2          100         100              0           0
-## 3           60         100              0           0
+## 1          100         100              0           0
+## 2           90         100              0           0
+## 3           90         100              0           0
 ## 4           50         100              0           0
-## 5           30         100              0           0
-## 6           50         100              0           0
-## 7           20          80              0           0
-## 8            0          80              0           0
-## 9            0          10              0           0
-## 10           0          10              0           0
-## 11           0          20              0           0
+## 5           40         100              0           0
+## 6           30         100              0           0
+## 7            0          80              0           0
+## 8            0          60              0           0
+## 9            0          50              0           0
+## 10           0           0              0           0
+## 11           0          10              0           0
 ## 12           0           0              0           0
 ## 13           0           0             10           0
-## 14           0           0             20           0
-## 15           0           0             70           0
+## 14           0           0              0           0
+## 15           0           0             90           0
 ## 16           0           0            100           0
 ## 17           0           0            100          50
 ## 18           0           0            100          50&lt;/code&gt;&lt;/pre&gt;
@@ -356,193 +786,193 @@ ggplot(comparisonSimTable.2019.tidy, aes(x = Team, y = Percent, fill = Model)) +
 &lt;h3&gt;Normal model&lt;/h3&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimtablenorm.2018&lt;/code&gt;&lt;/pre&gt;
 &lt;pre&gt;&lt;code&gt;##                      Team MedianPos MeanPos BestPos WorstPos percentWon
-## 1               Melbourne       1.5     1.9       1        5         50
-## 2                Richmond       2.0     2.0       1        3         40
-## 3             Collingwood       4.0     4.1       2        6          0
-## 4                 Geelong       4.5     4.0       1        7         10
-## 5              West Coast       5.0     4.9       2        7          0
-## 6                Hawthorn       5.0     5.2       2        8          0
-## 7         North Melbourne       7.5     6.9       4       10          0
-## 8  Greater Western Sydney       7.5     7.6       6        9          0
-## 9           Port Adelaide      10.0     9.8       7       12          0
-## 10               Adelaide      10.5    10.3       8       12          0
-## 11               Essendon      10.5    10.3       8       12          0
-## 12                 Sydney      11.5    11.1       9       13          0
-## 13              Fremantle      13.0    13.2      12       15          0
-## 14         Brisbane Lions      14.0    14.0      13       15          0
-## 15       Western Bulldogs      15.0    14.8      14       16          0
+## 1               Melbourne       1.0     1.5       1        3         70
+## 2                Richmond       2.0     2.4       1        5         30
+## 3             Collingwood       3.0     3.1       2        5          0
+## 4              West Coast       4.5     4.4       2        6          0
+## 5                 Geelong       5.0     4.6       2        7          0
+## 6                Hawthorn       5.5     5.2       4        6          0
+## 7         North Melbourne       7.0     7.6       6       11          0
+## 8           Port Adelaide       8.0     8.5       6       11          0
+## 9  Greater Western Sydney       8.5     9.0       7       12          0
+## 10                 Sydney      10.0    10.2       9       12          0
+## 11               Adelaide      11.0    10.6       8       12          0
+## 12               Essendon      11.0    11.0       9       13          0
+## 13         Brisbane Lions      13.0    13.5      13       15          0
+## 14              Fremantle      14.0    13.5      12       14          0
+## 15       Western Bulldogs      15.0    15.0      14       16          0
 ## 16               St Kilda      16.0    16.0      15       17          0
 ## 17                Carlton      17.5    17.4      16       18          0
 ## 18             Gold Coast      17.5    17.5      17       18          0
 ##    percentTop4 percentTop8 percentBottom4 percentLast
-## 1           90         100              0           0
-## 2          100         100              0           0
-## 3           60         100              0           0
+## 1          100         100              0           0
+## 2           90         100              0           0
+## 3           90         100              0           0
 ## 4           50         100              0           0
-## 5           30         100              0           0
-## 6           50         100              0           0
-## 7           20          80              0           0
-## 8            0          80              0           0
-## 9            0          10              0           0
-## 10           0          10              0           0
-## 11           0          20              0           0
+## 5           40         100              0           0
+## 6           30         100              0           0
+## 7            0          80              0           0
+## 8            0          60              0           0
+## 9            0          50              0           0
+## 10           0           0              0           0
+## 11           0          10              0           0
 ## 12           0           0              0           0
 ## 13           0           0             10           0
-## 14           0           0             20           0
-## 15           0           0             70           0
+## 14           0           0              0           0
+## 15           0           0             90           0
 ## 16           0           0            100           0
 ## 17           0           0            100          50
 ## 18           0           0            100          50&lt;/code&gt;&lt;/pre&gt;
 &lt;/div&gt;
 &lt;div id=&#34;tanh-model&#34; class=&#34;section level3&#34;&gt;
 &lt;h3&gt;Tanh model&lt;/h3&gt;
+&lt;p&gt;Here, we will inspect our restuls for our model wih various different weighting paramaters, w, before taking the best of these for use in our further analyses.&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimlist.2018[[1]] %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
 &lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
 ##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
 ##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
-##  1 Richm~          1      1.2        1         2          80          100
-##  2 West ~          2      1.8        1         2          20          100
-##  3 Hawth~          3      3.2        3         5           0           90
-##  4 Colli~          4      4.2        4         5           0           80
-##  5 Melbo~          5      4.6        3         5           0           30
-##  6 Sydney          6      6.2        6         7           0            0
-##  7 Great~          7      6.8        6         7           0            0
-##  8 North~          8      8.1        8         9           0            0
-##  9 Port ~          9      8.9        8         9           0            0
-## 10 Geelo~         10     10         10        10           0            0
-## 11 Essen~         11     11.1       11        12           0            0
-## 12 Adela~         12     12.1       12        13           0            0
-## 13 Weste~         13     13         11        14           0            0
-## 14 Frema~         14     13.8       13        14           0            0
-## 15 Brisb~         15     15.1       15        16           0            0
-## 16 St Ki~         16     16         15        17           0            0
-## 17 Gold ~         17     17.2       16        18           0            0
-## 18 Carlt~         18     17.7       17        18           0            0
+##  1 Richm~        1        1.1        1         2          90          100
+##  2 West ~        2        1.9        1         2          10          100
+##  3 Hawth~        3        3.2        3         4           0          100
+##  4 Colli~        4        4          3         5           0           80
+##  5 Melbo~        5        4.8        4         5           0           20
+##  6 Great~        6.5      6.5        6         7           0            0
+##  7 Sydney        6.5      6.5        6         7           0            0
+##  8 North~        8        8.1        8         9           0            0
+##  9 Port ~        9        8.9        8         9           0            0
+## 10 Geelo~       10       10         10        10           0            0
+## 11 Essen~       11       11         11        11           0            0
+## 12 Adela~       12       12.1       12        13           0            0
+## 13 Weste~       13       13         12        14           0            0
+## 14 Frema~       14       13.9       13        14           0            0
+## 15 Brisb~       15       15.2       15        16           0            0
+## 16 St Ki~       16       16         15        18           0            0
+## 17 Gold ~       17       17.3       16        18           0            0
+## 18 Carlt~       17.5     17.5       17        18           0            0
 ## # ... with 3 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
 ## #   $percentLast &amp;lt;dbl&amp;gt;&lt;/code&gt;&lt;/pre&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimlist.2018[[20]] %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
 &lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
 ##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
 ##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
-##  1 Colli~        2        2.6        1         5          30           80
-##  2 Hawth~        3.5      3.5        1         7          10           70
-##  3 Richm~        4        3.9        1         8          20           70
-##  4 West ~        4        4          1         7          20           50
-##  5 Melbo~        4.5      5.2        1        12          10           50
-##  6 Great~        7.5      7.3        2        11           0           20
-##  7 Sydney        7.5      8.4        3        16           0           20
-##  8 North~        8.5      9.5        4        17           0           10
-##  9 Essen~        9        9.5        5        13           0            0
-## 10 Port ~        9.5      8.9        1        15          10           20
-## 11 Adela~       10.5     11.9        8        18           0            0
-## 12 Geelo~       11       10.6        4        14           0           10
-## 13 Frema~       11       11.4        6        17           0            0
-## 14 St Ki~       14       13.5        9        17           0            0
-## 15 Weste~       15       14.6       10        18           0            0
-## 16 Brisb~       15       14.8        9        18           0            0
-## 17 Carlt~       16.5     15.4       11        18           0            0
-## 18 Gold ~       17       16         13        18           0            0
+##  1 Hawth~        2        3          1        11          30           80
+##  2 West ~        3        3.7        1        11          20           80
+##  3 Richm~        3        3.8        1         9          10           80
+##  4 Colli~        4        4.1        1         8          20           60
+##  5 Melbo~        5        5.4        1        11          20           40
+##  6 Great~        6.5      7.8        4        16           0           10
+##  7 Geelo~        8        8.7        4        13           0           10
+##  8 North~        8        9.3        6        15           0            0
+##  9 Sydney        9        8.1        2        17           0           30
+## 10 Port ~        9        9.4        5        13           0            0
+## 11 Essen~       10       10.1        5        15           0            0
+## 12 Adela~       12       11.8        4        16           0           10
+## 13 Frema~       13       12.8        7        18           0            0
+## 14 Weste~       14       13.3        6        17           0            0
+## 15 Carlt~       14.5     14.5        9        18           0            0
+## 16 Brisb~       15.5     15.1       11        18           0            0
+## 17 St Ki~       16       14.2        7        18           0            0
+## 18 Gold ~       16.5     15.9       10        18           0            0
 ## # ... with 3 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
 ## #   $percentLast &amp;lt;dbl&amp;gt;&lt;/code&gt;&lt;/pre&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimlist.2018[[50]] %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
 &lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
 ##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
 ##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
-##  1 Hawth~        4        5.3        2        15           0           50
-##  2 Port ~        4        5.3        2        10           0           60
-##  3 Richm~        4.5      6.2        1        16          20           50
-##  4 West ~        5.5      5.4        1        13          30           40
-##  5 Frema~        7.5      8.3        3        16           0           30
-##  6 Great~        8.5      8.2        1        18          20           40
-##  7 North~        9        9.3        3        17           0           20
-##  8 Essen~        9       10.1        5        18           0            0
-##  9 Carlt~        9.5      9.3        2        17           0           20
-## 10 Colli~        9.5      9.3        1        15          10           20
-## 11 Melbo~       11        9.8        2        18           0           20
-## 12 Weste~       11       10.8        2        18           0           10
-## 13 Adela~       12       11.4        4        18           0           10
-## 14 Gold ~       12       11.6        1        18          10           10
-## 15 Sydney       13       11.1        1        16          10           10
-## 16 Brisb~       13.5     12.7        6        18           0            0
-## 17 Geelo~       14.5     12.9        2        18           0           10
-## 18 St Ki~       14.5     14          7        18           0            0
+##  1 West ~        3        3.8        1         9          10           80
+##  2 Richm~        5        6.4        1        14          10           50
+##  3 Hawth~        5.5      5.8        2        12           0           40
+##  4 Colli~        6.5      6.7        1        13          30           30
+##  5 Sydney        7        7.3        1        15          10           20
+##  6 Great~        8        8.3        1        16          10           20
+##  7 Port ~        8.5      8.8        1        18          10           40
+##  8 Melbo~        8.5      9.4        6        15           0            0
+##  9 Essen~       10        9.8        1        17          10           20
+## 10 Geelo~       11        9.9        2        17           0           20
+## 11 St Ki~       11       11.5        5        17           0            0
+## 12 Weste~       11.5     10.8        2        18           0           10
+## 13 North~       11.5     11.2        4        18           0           10
+## 14 Brisb~       13       11.2        1        17          10           20
+## 15 Carlt~       13       13.3        9        18           0            0
+## 16 Adela~       13.5     12.7        3        18           0           10
+## 17 Frema~       14       10.9        2        18           0           30
+## 18 Gold ~       14       13.2        5        18           0            0
 ## # ... with 3 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
 ## #   $percentLast &amp;lt;dbl&amp;gt;&lt;/code&gt;&lt;/pre&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimlist.2018[[100]] %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
 &lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
 ##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
 ##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
-##  1 West ~        3.5      3.9        1         9          10           60
-##  2 Richm~        4.5      6.6        2        16           0           50
-##  3 Geelo~        6        7.1        1        18          40           40
-##  4 Frema~        7        7.8        3        15           0           30
-##  5 North~        8        7.8        1        15          20           30
-##  6 Port ~        9        8.5        3        16           0           30
-##  7 Great~        9        8.8        1        15          10           20
-##  8 Sydney        9        9.9        3        17           0           20
-##  9 St Ki~        9.5      9.7        4        18           0           10
-## 10 Melbo~       10        9.8        5        18           0            0
-## 11 Gold ~       10       10.7        2        17           0           10
-## 12 Adela~       11        9.1        1        17          10           30
-## 13 Essen~       11       10.6        1        18          10           10
-## 14 Hawth~       12.5     10.8        2        18           0           20
-## 15 Brisb~       12.5     12.3        3        18           0           10
-## 16 Colli~       13       10.7        3        16           0           20
-## 17 Weste~       13       12.7        3        18           0           10
-## 18 Carlt~       16.5     14.2        7        18           0            0
+##  1 Melbo~        6        7          1        15          10           30
+##  2 West ~        6        8          2        16           0           30
+##  3 Carlt~        6        8.3        1        18          10           10
+##  4 Richm~        7        8.1        2        16           0           20
+##  5 Great~        8        8.3        3        14           0           10
+##  6 Sydney        8        9.4        3        16           0           20
+##  7 Hawth~        8.5      8.7        2        15           0           20
+##  8 Colli~        9        8.5        1        16          10           40
+##  9 Frema~        9        8.6        4        18           0           30
+## 10 Port ~        9        9          1        18          10           40
+## 11 North~        9.5      9.3        1        18          10           30
+## 12 Adela~        9.5      9.8        1        17          20           20
+## 13 Geelo~       10        9.8        2        17           0           30
+## 14 Weste~       10.5     10.1        1        16          10           10
+## 15 Brisb~       11.5     10.1        1        16          10           20
+## 16 Essen~       12.5     10.8        3        18           0           20
+## 17 Gold ~       15       12.4        1        18          10           10
+## 18 St Ki~       16       14.8        4        18           0           10
 ## # ... with 3 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
 ## #   $percentLast &amp;lt;dbl&amp;gt;&lt;/code&gt;&lt;/pre&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimlist.2018[[500]] %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
 &lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
 ##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
 ##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
-##  1 Port ~        3.5      5.6        1        17          10           60
-##  2 Sydney        6        6.4        1        13          10           30
-##  3 Great~        6        8.4        2        18           0           40
-##  4 Hawth~        6.5      7.9        1        18          20           30
-##  5 Melbo~        7        7.6        1        17          10           30
-##  6 Geelo~        8        9.6        2        18           0           10
-##  7 Essen~        8       10.3        5        18           0            0
-##  8 Brisb~        8.5     10.4        4        18           0           10
-##  9 Frema~        9        8.9        1        17          10           40
-## 10 Gold ~        9        8.9        2        17           0           20
-## 11 Weste~        9.5      9.2        2        17           0           40
-## 12 Adela~       10       10.7        2        16           0           10
-## 13 Richm~       10.5     10.2        1        18          10           10
-## 14 Colli~       11.5     10.6        1        16          10           10
-## 15 West ~       12       11.4        4        16           0           10
-## 16 Carlt~       12.5     11.1        3        18           0           20
-## 17 St Ki~       12.5     11.1        1        18          10           20
-## 18 North~       14       12.7        1        17          10           10
+##  1 West ~        4.5      5.3        1        16          30           50
+##  2 Melbo~        5        6.1        2        11           0           50
+##  3 Colli~        7        8.3        3        15           0           20
+##  4 Adela~        7        8.9        2        18           0           20
+##  5 Hawth~        8        7.3        1        14          20           30
+##  6 North~        9.5      9          1        18          20           30
+##  7 Essen~        9.5      9.1        2        17           0           20
+##  8 Richm~        9.5      9.1        1        17          20           20
+##  9 Sydney       10        8.5        2        14           0           20
+## 10 Great~       10        9.8        1        18          10           20
+## 11 Geelo~       10.5     10.4        3        17           0           10
+## 12 St Ki~       11       10.9        2        17           0           20
+## 13 Carlt~       11.5     11.9        4        18           0           10
+## 14 Gold ~       12       10.3        2        16           0           30
+## 15 Weste~       12       10.5        2        18           0           20
+## 16 Frema~       12       11.4        4        17           0           10
+## 17 Port ~       12.5     11.4        3        18           0           10
+## 18 Brisb~       13.5     12.8        3        18           0           10
 ## # ... with 3 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
 ## #   $percentLast &amp;lt;dbl&amp;gt;&lt;/code&gt;&lt;/pre&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;Finalsimlist.2018[[1000]] %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
 &lt;pre&gt;&lt;code&gt;## # A tibble: 18 x 1
 ##    .$Team $MedianPos $MeanPos $BestPos $WorstPos $percentWon $percentTop4
 ##    &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;    &amp;lt;dbl&amp;gt;     &amp;lt;dbl&amp;gt;       &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
-##  1 Weste~        4.5      7          1        18          10           50
-##  2 Frema~        5.5      6.1        1        11          10           40
-##  3 North~        7        7.6        1        16          20           30
-##  4 Adela~        7.5      8.8        1        18          10           40
-##  5 Sydney        8        8.7        2        17           0           20
-##  6 Geelo~        8        9.1        2        17           0           20
-##  7 Richm~        8.5      8.9        3        16           0           20
-##  8 Melbo~        9.5      8.9        1        17          10           30
-##  9 Colli~        9.5      9.7        4        18           0           10
-## 10 St Ki~       10       10.9        4        18           0           10
-## 11 Great~       10.5     10.6        2        18           0           20
-## 12 Brisb~       10.5     10.9        4        17           0           10
-## 13 Gold ~       11.5      9.9        2        16           0           20
-## 14 Hawth~       11.5     10          1        18          10           20
-## 15 Port ~       12       10.3        1        18          10           30
-## 16 Carlt~       12.5     10.7        1        18          10           20
-## 17 West ~       13       11          1        16          10           10
-## 18 Essen~       13       11.9        6        17           0            0
+##  1 West ~        4        4.8        1        11          10           50
+##  2 Colli~        5.5      6.7        2        16           0           30
+##  3 Port ~        7        8.9        3        16           0           20
+##  4 Adela~        8        8.5        2        18           0           40
+##  5 St Ki~        8        8.6        1        18          10           40
+##  6 Hawth~        8.5      8.4        1        15          10           30
+##  7 Richm~        8.5      8.8        1        17          10           20
+##  8 North~        8.5      9.8        4        18           0           10
+##  9 Sydney        9        8.9        1        15          10           20
+## 10 Frema~       10        9.8        3        18           0           20
+## 11 Brisb~       10       11.1        5        17           0            0
+## 12 Gold ~       10.5      9.6        2        17           0           20
+## 13 Weste~       10.5      9.6        1        18          20           30
+## 14 Carlt~       11.5     11          5        17           0            0
+## 15 Geelo~       13       11.4        1        18          10           20
+## 16 Melbo~       13       11.6        2        18           0           10
+## 17 Great~       13.5     12          4        18           0           20
+## 18 Essen~       14       11.5        1        18          20           20
 ## # ... with 3 more variables: $percentTop8 &amp;lt;dbl&amp;gt;, $percentBottom4 &amp;lt;dbl&amp;gt;,
 ## #   $percentLast &amp;lt;dbl&amp;gt;&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;OKay, so we don’t have to keep doing simulations with all these different weight parameters, let’s see which ones do the best job of simulating the data. We are going to have to pay it by ear a little based on intuition, however, because we have used the same data to test the model, and we want to avoid overfitting. So we will pick the best model based on (1) it’s spearman coefficient with last year’s ladder and (2) its ability to have varation (the same team doesn’t simply win each year)&lt;/p&gt;
-&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;##Create order comparisons table## 
-#should change this to use lapply or try to put loop insid dataframe fucntion  
+&lt;p&gt;We are going to have to play it by ear a little, and use our intiution to see which of these models appears to be the best for us going forward. Particularly, because we have used the same data that trained the model to test the model, and we want to avoid overfitting. So, we will pick the best model based on (1) it’s spearman coefficient with last year’s ladder and (2) its ability to have varation in our simulations (the same team doesn’t simply win each year).&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;##Create order comparisons table##  
 for (w in c(1, 20, 50, 100, 500, 1000)){
   name &amp;lt;- paste0(&amp;quot;Ordertanh.&amp;quot;, w)
   assign(name,  match(finalTable2018$Team, Finalsimlist.2018[[w]]$Team))
@@ -559,49 +989,50 @@ ordercomparison.2018.tanh &amp;lt;- data.frame(Team = factor(finalTable2018$Team
                                         Ordertanh.1000)
 ordercomparison.2018.tanh&lt;/code&gt;&lt;/pre&gt;
 &lt;pre&gt;&lt;code&gt;##                      Team Order2018 Ordertanh.1 Ordertanh.20 Ordertanh.50
-## 1                Richmond         1           1            3            3
-## 2              West Coast         2           2            4            4
-## 3             Collingwood         3           4            1           10
-## 4                Hawthorn         4           3            2            1
-## 5               Melbourne         5           5            5           11
-## 6                  Sydney         6           6            7           15
-## 7  Greater Western Sydney         7           7            6            6
-## 8                 Geelong         8          10           12           17
-## 9         North Melbourne         9           8            8            7
-## 10          Port Adelaide        10           9           10            2
-## 11               Essendon        11          11            9            8
-## 12               Adelaide        12          12           11           13
-## 13       Western Bulldogs        13          13           15           12
-## 14              Fremantle        14          14           13            5
-## 15         Brisbane Lions        15          15           16           16
-## 16               St Kilda        16          16           14           18
-## 17             Gold Coast        17          17           18           14
-## 18                Carlton        18          18           17            9
+## 1                Richmond         1           1            3            2
+## 2              West Coast         2           2            2            1
+## 3             Collingwood         3           4            4            4
+## 4                Hawthorn         4           3            1            3
+## 5               Melbourne         5           5            5            8
+## 6                  Sydney         6           7            9            5
+## 7  Greater Western Sydney         7           6            6            6
+## 8                 Geelong         8          10            7           10
+## 9         North Melbourne         9           8            8           13
+## 10          Port Adelaide        10           9           10            7
+## 11               Essendon        11          11           11            9
+## 12               Adelaide        12          12           12           16
+## 13       Western Bulldogs        13          13           14           12
+## 14              Fremantle        14          14           13           17
+## 15         Brisbane Lions        15          15           16           14
+## 16               St Kilda        16          16           17           11
+## 17             Gold Coast        17          17           18           18
+## 18                Carlton        18          18           15           15
 ##    Ordertanh.100 Ordertanh.500 Ordertanh.1000
-## 1              2            13              7
-## 2              1            15             17
-## 3             16            14              9
-## 4             14             4             14
-## 5             10             5              8
-## 6              8             2              5
-## 7              7             3             11
-## 8              3             6              6
-## 9              5            18              3
-## 10             6             1             15
-## 11            13             7             18
-## 12            12            12              4
-## 13            17            11              1
-## 14             4             9              2
-## 15            15             8             12
-## 16             9            17             10
-## 17            11            10             13
-## 18            18            16             16&lt;/code&gt;&lt;/pre&gt;
-&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;cormatrix.weights &amp;lt;- cor(ordercomparison.2018.tanh[,2:ncol(ordercomparison.2018.tanh)], use = &amp;quot;all.obs&amp;quot;, method = &amp;quot;spearman&amp;quot;)
+## 1              4             8              7
+## 2              2             1              1
+## 3              8             3              2
+## 4              7             5              6
+## 5              1             2             16
+## 6              6             9              9
+## 7              5            10             17
+## 8             13            11             15
+## 9             11             6              8
+## 10            10            17              3
+## 11            16             7             18
+## 12            12             4              4
+## 13            14            15             13
+## 14             9            16             10
+## 15            15            18             11
+## 16            18            12              5
+## 17            17            14             12
+## 18             3            13             14&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;## get correlation matrix##
+cormatrix.weights &amp;lt;- cor(ordercomparison.2018.tanh[,2:ncol(ordercomparison.2018.tanh)], use = &amp;quot;all.obs&amp;quot;, method = &amp;quot;spearman&amp;quot;)
 
 # lets find a nice way to graphically look at that
 ggcorrplot(cormatrix.weights, lab = TRUE, show.legend = TRUE)&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/tanhcomparisons-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
-&lt;p&gt;So on this basis, we will choose a weight parameter value of 20 as, on inspection of simulation results, it allows for enough randomness in the system to allow teams in the top 8 some likelihood of winning the cup, but denies the chance for the really teams for winning. Let’s be honest, carlton’s chance of winning the premiership is less than 1 in a million.&lt;/p&gt;
+&lt;p&gt;So on this basis, we will choose a weight parameter value of 20 as, on inspection of simulation results, it allows for enough randomness in the system to allow teams in the top 8 to have some reasonable likelihood of winning the cup, but (all but) denies the chance for the really useless teams for winning. Let’s be honest, carlton’s chance of winning the premiership is less than 1 in a million.&lt;/p&gt;
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;div id=&#34;comparing-the-three-models.&#34; class=&#34;section level2&#34;&gt;
@@ -618,27 +1049,33 @@ ordercomparison.2018 %&amp;gt;% tibble()&lt;/code&gt;&lt;/pre&gt;
 ##    .$Team        $Order2018 $OrderNorm.2018 $OrderPois.2018 $OrderTanh.2018
 ##    &amp;lt;fct&amp;gt;              &amp;lt;int&amp;gt;           &amp;lt;int&amp;gt;           &amp;lt;int&amp;gt;           &amp;lt;int&amp;gt;
 ##  1 Richmond               1               2               2               3
-##  2 West Coast             2               5               5               4
-##  3 Collingwood            3               3               3               1
-##  4 Hawthorn               4               6               6               2
+##  2 West Coast             2               4               4               2
+##  3 Collingwood            3               3               3               4
+##  4 Hawthorn               4               6               6               1
 ##  5 Melbourne              5               1               1               5
-##  6 Sydney                 6              12              12               7
-##  7 Greater West~          7               8               8               6
-##  8 Geelong                8               4               4              12
+##  6 Sydney                 6              10              10               9
+##  7 Greater West~          7               9               9               6
+##  8 Geelong                8               5               5               7
 ##  9 North Melbou~          9               7               7               8
-## 10 Port Adelaide         10               9               9              10
-## 11 Essendon              11              11              11               9
-## 12 Adelaide              12              10              10              11
-## 13 Western Bull~         13              15              15              15
-## 14 Fremantle             14              13              13              13
-## 15 Brisbane Lio~         15              14              14              16
-## 16 St Kilda              16              16              16              14
+## 10 Port Adelaide         10               8               8              10
+## 11 Essendon              11              12              12              11
+## 12 Adelaide              12              11              11              12
+## 13 Western Bull~         13              15              15              14
+## 14 Fremantle             14              14              14              13
+## 15 Brisbane Lio~         15              13              13              16
+## 16 St Kilda              16              16              16              17
 ## 17 Gold Coast            17              18              18              18
-## 18 Carlton               18              17              17              17&lt;/code&gt;&lt;/pre&gt;
+## 18 Carlton               18              17              17              15&lt;/code&gt;&lt;/pre&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;#Let&amp;#39;s now get the spearman&amp;#39;s correlation coefficients and show that in a correlatin matrix
 cormatrix.2018 &amp;lt;- cor(ordercomparison.2018[,2:5], use = &amp;quot;all.obs&amp;quot;, method = &amp;quot;spearman&amp;quot;)
 ggcorrplot(cormatrix.2018, lab = TRUE)&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/comparing%20the%20models-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;graphs&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Graphs&lt;/h2&gt;
+&lt;p&gt;SO now lets have a look at this data graphically.&lt;/p&gt;
+&lt;div id=&#34;poisson-results-graph&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Poisson Results Graph&lt;/h3&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;#graphing and comparing the two models. 
 
 #create mode function
@@ -658,14 +1095,27 @@ SimResultspois.2018.tidy$Team &amp;lt;- factor(SimResultspois.2018.tidy$Team, le
 
 #create graph 
 ggplot(SimResultspois.2018.tidy, aes(x = Team, y = Position)) + 
-  geom_violin(aes(fill = Team, col = Team), trim = TRUE, kernel = &amp;quot;gaussian&amp;quot;, adjust = 3) + 
-  stat_summary(fun.y=median, geom=&amp;quot;point&amp;quot;, size=4, color=&amp;quot;black&amp;quot;, shape = 0) +
-  stat_summary(fun.y=mean, geom=&amp;quot;point&amp;quot;, size=3, color=&amp;quot;black&amp;quot;, shape = 2) +
-  stat_summary(fun.y=Mode, geom=&amp;quot;point&amp;quot;, size=1, color=&amp;quot;black&amp;quot;, shape = 19) +
+  geom_violin(aes(fill = Team, col = Team), show.legend = FALSE,
+              trim = TRUE, kernel = &amp;quot;gaussian&amp;quot;, adjust = 3) + 
+  stat_summary(fun.y=median, geom=&amp;quot;point&amp;quot;,color=&amp;quot;black&amp;quot;, 
+                     aes(shape = &amp;quot;Median&amp;quot;, size=&amp;quot;Median&amp;quot;)) +
+  stat_summary(fun.y=mean, geom =&amp;quot;point&amp;quot;, color = &amp;quot;black&amp;quot;,
+                     aes(shape = &amp;quot;Mean&amp;quot;, size = &amp;quot;Mean&amp;quot;)) +
+  stat_summary(fun.y=Mode, geom =&amp;quot;point&amp;quot;, color = &amp;quot;black&amp;quot;,
+                     aes(shape = &amp;quot;Mode&amp;quot;, size = &amp;quot;Mode&amp;quot;)) +
   coord_flip(ylim = c(1,18)) +
   scale_y_continuous(breaks = 1:18, labels = 1:18) +
-  theme(legend.position = &amp;quot;none&amp;quot;, panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank()) &lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/graphs-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+  theme(panel.grid.major.x = element_blank(),
+              panel.grid.minor.x = element_blank()) +
+  scale_shape_manual(name = &amp;quot;&amp;quot;, labels = c(&amp;quot;Median&amp;quot;,&amp;quot;Mean&amp;quot;, &amp;quot;Mode&amp;quot;),
+                                values = c(0, 2, 19)) +
+  scale_size_manual(name = &amp;quot;&amp;quot;, labels = c(&amp;quot;Median&amp;quot;, &amp;quot;Mean&amp;quot;, &amp;quot;Mode&amp;quot;), 
+                               values = c(4, 3, 1)) +
+  guides(shape = &amp;quot;legend&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/poisgraph-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;norm-results-graph&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Norm Results Graph&lt;/h3&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;###GRAPH FOR NORM MODEL###
 
 #transpose data to tidy form for use in ggplot
@@ -677,14 +1127,59 @@ SimResultsnorm.2018.tidy$Team &amp;lt;- factor(SimResultsnorm.2018.tidy$Team, le
 
 #create graph 
 ggplot(SimResultsnorm.2018.tidy, aes(x = Team, y = Position)) + 
-  geom_violin(aes(fill = Team, col = Team), trim = TRUE, kernel = &amp;quot;gaussian&amp;quot;, adjust = 3) + 
-  stat_summary(fun.y=median, geom=&amp;quot;point&amp;quot;, size=4, color=&amp;quot;black&amp;quot;, shape = 0) +
-  stat_summary(fun.y=mean, geom=&amp;quot;point&amp;quot;, size=3, color=&amp;quot;black&amp;quot;, shape = 2) +
-  stat_summary(fun.y=Mode, geom=&amp;quot;point&amp;quot;, size=1, color=&amp;quot;black&amp;quot;, shape = 19) +
+  geom_violin(aes(fill = Team, col = Team), show.legend = FALSE,
+              trim = TRUE, kernel = &amp;quot;gaussian&amp;quot;, adjust = 3) + 
+  stat_summary(fun.y=median, geom=&amp;quot;point&amp;quot;,color=&amp;quot;black&amp;quot;, 
+                     aes(shape = &amp;quot;Median&amp;quot;, size=&amp;quot;Median&amp;quot;)) +
+  stat_summary(fun.y=mean, geom =&amp;quot;point&amp;quot;, color = &amp;quot;black&amp;quot;,
+                     aes(shape = &amp;quot;Mean&amp;quot;, size = &amp;quot;Mean&amp;quot;)) +
+  stat_summary(fun.y=Mode, geom =&amp;quot;point&amp;quot;, color = &amp;quot;black&amp;quot;,
+                     aes(shape = &amp;quot;Mode&amp;quot;, size = &amp;quot;Mode&amp;quot;)) +
   coord_flip(ylim = c(1,18)) +
   scale_y_continuous(breaks = 1:18, labels = 1:18) +
-  theme(legend.position = &amp;quot;none&amp;quot;, panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank()) &lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/graphs-2.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+  theme(panel.grid.major.x = element_blank(),
+              panel.grid.minor.x = element_blank()) +
+  scale_shape_manual(name = &amp;quot;&amp;quot;, labels = c(&amp;quot;Median&amp;quot;,&amp;quot;Mean&amp;quot;, &amp;quot;Mode&amp;quot;),
+                                values = c(0, 2, 19)) +
+  scale_size_manual(name = &amp;quot;&amp;quot;, labels = c(&amp;quot;Median&amp;quot;, &amp;quot;Mean&amp;quot;, &amp;quot;Mode&amp;quot;), 
+                               values = c(4, 3, 1)) +
+  guides(shape = &amp;quot;legend&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/normgraph-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;rankings-model-graph&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Rankings Model Graph&lt;/h3&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;###Graph for Rankings Model###
+
+#transpose data to tidy form for use in ggplot
+SimResultstanh.2018 &amp;lt;- SimResultsList.2018[[20]] %&amp;gt;% as.data.frame()
+SimResultstanh.2018$simNumber &amp;lt;- sprintf(&amp;quot;sim%d&amp;quot;, seq(1:Nsim.tanh.2018))
+SimResultstanh.2018.tidy &amp;lt;- gather(SimResultstanh.2018,&amp;quot;Team&amp;quot;, &amp;quot;Position&amp;quot;, -simNumber)
+
+#create ordered factor to order graph
+SimResultstanh.2018.tidy$Team &amp;lt;- factor(SimResultstanh.2018.tidy$Team, levels = Finalsimlist.2018[[w]]$Team)
+
+ggplot(SimResultsnorm.2018.tidy, aes(x = Team, y = Position)) + 
+  geom_violin(aes(fill = Team, col = Team), show.legend = FALSE,
+              trim = TRUE, kernel = &amp;quot;gaussian&amp;quot;, adjust = 3) + 
+  stat_summary(fun.y=median, geom=&amp;quot;point&amp;quot;,color=&amp;quot;black&amp;quot;, 
+                     aes(shape = &amp;quot;Median&amp;quot;, size=&amp;quot;Median&amp;quot;)) +
+  stat_summary(fun.y=mean, geom =&amp;quot;point&amp;quot;, color = &amp;quot;black&amp;quot;,
+                     aes(shape = &amp;quot;Mean&amp;quot;, size = &amp;quot;Mean&amp;quot;)) +
+  stat_summary(fun.y=Mode, geom =&amp;quot;point&amp;quot;, color = &amp;quot;black&amp;quot;,
+                     aes(shape = &amp;quot;Mode&amp;quot;, size = &amp;quot;Mode&amp;quot;)) +
+  coord_flip(ylim = c(1,18)) +
+  scale_y_continuous(breaks = 1:18, labels = 1:18) +
+  theme(panel.grid.major.x = element_blank(),
+              panel.grid.minor.x = element_blank()) +
+  scale_shape_manual(name = &amp;quot;&amp;quot;, labels = c(&amp;quot;Median&amp;quot;,&amp;quot;Mean&amp;quot;, &amp;quot;Mode&amp;quot;),
+                                values = c(0, 2, 19)) +
+  scale_size_manual(name = &amp;quot;&amp;quot;, labels = c(&amp;quot;Median&amp;quot;, &amp;quot;Mean&amp;quot;, &amp;quot;Mode&amp;quot;), 
+                               values = c(4, 3, 1)) +
+  guides(shape = &amp;quot;legend&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/tanhgraph-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;comparison-graphs&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Comparison Graphs&lt;/h3&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;## create comparison graphs ##
 
 #combine two graphs##
@@ -708,21 +1203,25 @@ comparisonSimTable.2018.tidy$Type &amp;lt;- factor(comparisonSimTable.2018.tidy$
 
 #draw graphs
 ggplot(comparisonSimTable.2018, aes(x = Team, y = percentWon, fill = Model)) + 
-  geom_bar(stat = &amp;quot;identity&amp;quot;, position = &amp;#39;dodge&amp;#39;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/graphs-3.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+  geom_bar(stat = &amp;quot;identity&amp;quot;, position = &amp;#39;dodge&amp;#39;) +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/comparisongraphs-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;ggplot(comparisonSimTable.2018, aes(x = Team, y = percentTop8, fill = Model)) +
-  geom_bar(stat = &amp;quot;identity&amp;quot;, position = &amp;#39;dodge&amp;#39;)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/graphs-4.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+  geom_bar(stat = &amp;quot;identity&amp;quot;, position = &amp;#39;dodge&amp;#39;) +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/comparisongraphs-2.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
 &lt;pre class=&#34;r&#34;&gt;&lt;code&gt;ggplot(comparisonSimTable.2018.tidy, aes(x = Team, y = Percent, fill = Model)) + 
   geom_bar(stat = &amp;quot;identity&amp;quot;, position = &amp;#39;dodge&amp;#39;) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6)) +
-  facet_wrap(~Type, nrow = 1)&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/graphs-5.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
-&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;## WHich of these two models best captures last years fnal table.
-# Personally, I think the normal distribution model is by far the best of these two, It alligns with the variable nature of afl football and gives more beleiveable results.
-# It also allows for teams which footy intution says have a chance of winning the cup to win the cup. # but lets see which dataset best comports with last years data. 
-# lets import last years finaltable data.  
-#also note that comparing with last year isnt the  best method, because we have a different fixture (unlike football in the UK everyteam does not play eachother twice )&lt;/code&gt;&lt;/pre&gt;
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 6)) +
+  facet_wrap(~Type, nrow = 3)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/blog/2019-03-30-simulation-stimulation-afl-season-2018_files/figure-html/comparisongraphs-3.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;conclusion&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Conclusion&lt;/h2&gt;
+&lt;p&gt;Upon analysis of this data, it seems to me that the ‘normal’ model is the best of the bunch. It allows for the variability that we know, from a cursory knowledge of the sport, exists from year to year, while still preserving relevant information from last year.&lt;/p&gt;
+&lt;p&gt;In Part II of this series we apply this data to the upcoming season — to predict the all but certain future that that the Cats will once again be premier! (I wish)&lt;/p&gt;
+&lt;p&gt;See you then.&lt;/p&gt;
 &lt;/div&gt;
 </description>
     </item>

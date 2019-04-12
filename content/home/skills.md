@@ -30,16 +30,6 @@ subtitle = ""
   name = "LaTex"
   
 [[feature]]
-  icon = "gavel"
-  icon_pack = "fas"
-  name = "Lawyer"
-
-[[feature]]
-  icon = "markdown"
-  icon_pack = "fab"
-  name = "Markdown & R Markdown"
-  
-[[feature]]
   icon = "chart-area"
   icon_pack = "fas"
   name = "Data Visualization"
@@ -54,9 +44,6 @@ subtitle = ""
   icon_pack = "fas"
   name = "Machine Learning" 
 
-[[feature]]
-  icon = "handshake"
-  icon_pack = "fas"
-  name = "Negotiation & Dispute Resolution"     
+
 
 +++

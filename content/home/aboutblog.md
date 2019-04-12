@@ -41,10 +41,10 @@ subtitle = ""
 
 [advanced]
  # Custom CSS. 
- css_style = "custom"
+ css_style = ""
  
  # CSS class.
- css_class = ""
+ css_class = "aboutblog"
 +++
 
 >"I suppose it's tempting, if the only tool you have is a hammer, to treat everything as if it were a nail." 

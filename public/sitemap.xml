@@ -9,6 +9,12 @@
   
     <url>
     
+      <loc>/blog/simulation-stimulation-part-3-implementation/</loc>
+      <lastmod>2019-04-12T00:00:00+00:00</lastmod>
+    </url>
+  
+    <url>
+    
       <loc>/blog/simulation-stimulation-part-2-afl-season-2019/</loc>
       <lastmod>2019-04-01T00:33:38+11:00</lastmod>
     </url>
@@ -16,7 +22,7 @@
     <url>
     
       <loc>/blog/simulation-stimulation-afl-season-2018/</loc>
-      <lastmod>2019-04-01T00:33:38+11:00</lastmod>
+      <lastmod>2019-04-03T16:32:24+11:00</lastmod>
     </url>
   
     <url>
@@ -84,7 +90,7 @@
     <url>
     
       <loc>/tags/afl/</loc>
-      <lastmod>2019-04-01T00:33:38+11:00</lastmod>
+      <lastmod>2019-04-12T00:00:00+00:00</lastmod>
       <priority>0</priority>
     </url>
   
@@ -163,7 +169,7 @@
     <url>
     
       <loc>/categories/r/</loc>
-      <lastmod>2019-04-01T00:33:38+11:00</lastmod>
+      <lastmod>2019-04-12T00:00:00+00:00</lastmod>
       <priority>0</priority>
     </url>
   
@@ -176,7 +182,7 @@
     <url>
     
       <loc>/tags/simulations/</loc>
-      <lastmod>2019-04-01T00:33:38+11:00</lastmod>
+      <lastmod>2019-04-12T00:00:00+00:00</lastmod>
       <priority>0</priority>
     </url>
   
@@ -196,14 +202,14 @@
     <url>
     
       <loc>/tags/sport/</loc>
-      <lastmod>2019-04-01T00:33:38+11:00</lastmod>
+      <lastmod>2019-04-12T00:00:00+00:00</lastmod>
       <priority>0</priority>
     </url>
   
     <url>
     
       <loc>/tags/</loc>
-      <lastmod>2019-04-01T00:33:38+11:00</lastmod>
+      <lastmod>2019-04-12T00:00:00+00:00</lastmod>
       <priority>0</priority>
     </url>
   

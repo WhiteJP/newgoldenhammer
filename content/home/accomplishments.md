@@ -18,16 +18,34 @@ date_format = "Jan 2006"
 #   Leave other parameters empty if not required.
 #   Begin/end multi-line descriptions with 3 quotes `"""`.
 
+[[item]]
+  organization = "School of Psychological Sciences, University of Melbourne"
+  organization_url = "https://psychologicalsciences.unimelb.edu.au/"
+  title = "Dean's Award"
+  url = ""
+  certificate_url = "https://needtoaddurl.unimelb.edu.au/"
+  date_start = "2018-01-01"
+  date_end = "2018-11-01"
+  description = "Top student of the Graduate Diploma in Psychology at the University of Melbourne."
 
+[[item]]
+  organization = "School of Psychological Sciences, University of Melbourne"
+  organization_url = "https://psychologicalsciences.unimelb.edu.au/"
+  title = "Behavioural Neuroscience Prize"
+  url = ""
+  certificate_url = "https://needtoaddurl.unimelb.edu.au/"
+  date_start = "2018-01-01"
+  date_end = "2018-11-01"
+  description = "Highest grades in Behavioural Neuroscience subjects at the University of Melbourne."
   
 [[item]]
   organization = "DataCamp"
   organization_url = "https://www.datacamp.com/tracks/data-scientist-with-r"
-  title = "Data Scientist with R Career track"
+  title = "Data Scientist with R Career track"    
   url = ""
   certificate_url = "https://www.datacamp.com/statement-of-accomplishment/track/c965364f684f11a10977d8635d9d3f408245afb5"
-  date_start = "2017-07-01"
-  date_end = "2017-12-21"
-  description = ""
+  date_start = "2018-07-01"
+  date_end = "2018-12-21"
+  description = "Collection of 23 courses on data manipulation, inference, machine learning, data visualisation and more in R, Python, and SQL."
 
 +++

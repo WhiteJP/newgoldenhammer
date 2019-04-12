@@ -1,0 +1,401 @@
+---
+title: 'Simulation Stimulation Part 3: Implementation. '
+author: Joshua White
+date: '2019-04-12'
+slug: simulation-stimulation-part-3-implementation
+categories:
+  - R
+tags:
+  - AFL
+  - Simulations
+  - Sport
+image:
+  caption: ''
+  focal_point: ''
+output:
+  blogdown::html_page: 
+    toc: true
+summary: "All the nitty gritty details left out from Parts 1 and 2"
+---
+
+
+<div id="TOC">
+<ul>
+<li><a href="#normal-and-poisson-models">Normal and Poisson models</a><ul>
+<li><a href="#preparatory-steps">Preparatory steps</a></li>
+<li><a href="#possion-model-simulations">Possion model simulations</a></li>
+<li><a href="#normal-model-simulations">Normal model simulations</a></li>
+</ul></li>
+<li><a href="#rankings-model-tanh">Rankings Model: Tanh</a></li>
+<li><a href="#postscript-how-are-my-models-fairing-so-far">Postscript: How are my models fairing so far?</a></li>
+</ul>
+</div>
+
+<p>Parts 1 and 2 of this series made attempts to model, and them simulate, the 2018 and 2019 AFL seasons. These models were extremely simplistic, but were none-the-less interesting.</p>
+<div id="normal-and-poisson-models" class="section level1">
+<h1>Normal and Poisson models</h1>
+<div id="preparatory-steps" class="section level2">
+<h2>Preparatory steps</h2>
+<pre class="r"><code>#average H or A
+Average &lt;- pointssummary %&gt;% group_by(HorA, FororAgainst) %&gt;% summarise(Points = mean(Points)) 
+Homeaveragefor &lt;- as.numeric(Average[4, 3])
+Homeaverageagainst &lt;- as.numeric(Average[3, 3])
+Awayaveragefor &lt;- as.numeric(Average[2, 3])
+Awayaverageagainst &lt;- as.numeric(Average[1, 3])
+
+####Get strengths####
+# create functions to get Strenths
+AttackstrengthH &lt;- function(T){
+  as.numeric((pointssummary %&gt;% 
+                filter(Team == T, HorA == &quot;H&quot;, FororAgainst == &quot;For&quot;) %&gt;%
+                select(Points))/Homeaveragefor)
+}
+
+AttackstrengthA &lt;- function(T){
+  as.numeric((pointssummary %&gt;% 
+                filter(Team == T, HorA == &quot;A&quot;, FororAgainst == &quot;For&quot;) %&gt;% 
+                select(Points))/Awayaveragefor)
+}
+
+DefencestrengthH &lt;- function(T){
+  as.numeric(Homeaverageagainst/(pointssummary %&gt;% 
+                                   filter(Team == T, HorA == &quot;H&quot;, FororAgainst == &quot;Against&quot;) %&gt;% 
+                                   select(Points)))
+}
+
+DefencestrengthA &lt;-function(T){
+  as.numeric(Awayaverageagainst/(pointssummary %&gt;% 
+                                   filter(Team == T, HorA == &quot;A&quot;, FororAgainst == &quot;Against&quot;) %&gt;%
+                                   select(Points)))
+}
+
+#get table with all strengths
+#create tibble
+strengths &lt;- tibble(Team = unique(pointssummary$Team), AstrengthH = NA, 
+                    AstrengthA = NA, DstrengthH = NA, DstrengthA = NA)
+
+# populate with strengths
+strengths$AstrengthH &lt;- map_dbl(strengths$Team, AttackstrengthH)
+strengths$AstrengthA &lt;- map_dbl(strengths$Team, AttackstrengthA)
+strengths$DstrengthH &lt;- map_dbl(strengths$Team, DefencestrengthH)
+strengths$DstrengthA &lt;- map_dbl(strengths$Team, DefencestrengthA)
+
+####calculate paramater values: lambda and sd####
+lambdas.2019 &lt;- add_column(fixture2019, homelambda = NA, homesd = NA, awaylambda = NA, awaysd = NA)
+
+#create lambda  and sd functions
+lambdahometeam &lt;- function(HomeTeam, AwayTeam) {
+  Hometeamattackstrength &lt;- as.numeric(strengths[strengths$Team == HomeTeam, &quot;AstrengthH&quot;])
+  Awayteamdefencestrength &lt;- as.numeric(strengths[strengths$Team == AwayTeam, &quot;DstrengthA&quot;])
+  return(Homeaveragefor * Hometeamattackstrength / Awayteamdefencestrength)
+}
+
+lambdaawayteam &lt;- function(AwayTeam, HomeTeam) {
+  Awayteamattackstrength &lt;- as.numeric(strengths[strengths$Team == AwayTeam, &quot;AstrengthA&quot;])
+  Hometeamdefencestrength &lt;- as.numeric(strengths[strengths$Team == HomeTeam, &quot;DstrengthH&quot;])
+  return(Awayaveragefor * Awayteamattackstrength / Hometeamdefencestrength)
+}
+
+sdhometeam &lt;- function(HomeTeam, AwayTeam) {
+  Hometeamattack &lt;- as.numeric(pointssummary %&gt;% filter(Team == HomeTeam, HorA == &quot;H&quot;, FororAgainst == &quot;For&quot;) %&gt;%
+                                 select(sd))
+  Awayteamdefence &lt;- as.numeric(pointssummary %&gt;% filter(Team == AwayTeam, HorA == &quot;A&quot;, FororAgainst == &quot;Against&quot;) %&gt;%
+                                  select(sd))
+  # becuase n is equal can simply take average.
+  return(mean(Hometeamattack, Awayteamdefence))
+}
+
+sdawayteam &lt;- function(AwayTeam, HomeTeam) {
+  Awayteamattack &lt;- as.numeric(pointssummary %&gt;% filter(Team == AwayTeam, HorA == &quot;A&quot;, FororAgainst == &quot;For&quot;) %&gt;%
+                                 select(sd))
+  Hometeamdefence &lt;- as.numeric(pointssummary %&gt;%  filter(Team == HomeTeam, HorA == &quot;H&quot;, FororAgainst == &quot;Against&quot;) %&gt;%
+                                  select(sd))
+  # becuase n is equal can simply take average.
+  return(mean(Awayteamattack, Hometeamdefence))
+}
+
+#populate lamba values 
+for (i in 1:nrow(lambdas.2019)) {
+  lambdas.2019$homelambda[i] &lt;- lambdahometeam(lambdas.2019$Hometeam[i], lambdas.2019$Awayteam[i])
+  lambdas.2019$awaylambda[i] &lt;- lambdaawayteam(lambdas.2019$Awayteam[i], lambdas.2019$Hometeam[i])
+  lambdas.2019$homesd[i] &lt;- sdhometeam(lambdas.2019$Hometeam[i], lambdas.2019$Awayteam[i])
+  lambdas.2019$awaysd[i] &lt;- sdawayteam(lambdas.2019$Awayteam[i], lambdas.2019$Hometeam[i])
+}</code></pre>
+</div>
+<div id="possion-model-simulations" class="section level2">
+<h2>Possion model simulations</h2>
+<pre class="r"><code>####POISSON SIMULATION####
+Nsim.pois.2019 &lt;- 10
+
+#set up simulation results table
+SimResults &lt;- matrix(data = 0, nrow = Nsim.pois.2019, ncol = 18)
+colnames(SimResults) &lt;- strengths$Team
+
+for (i in 1:Nsim.pois.2019){
+  
+  #create Ladder for each season
+  Ladder &lt;- tibble(Team = strengths$Team, W = 0, L = 0, D = 0, Pts = 0,
+                   For = 0, Against = 0, Pct = 0)
+  
+  #simulate each season.
+  for (j in 1:nrow(lambdas.2019)) {
+    
+    #Here is the model working -- each score is simply a random drawing 
+    #from a poisson distribution described by our calculated lambas
+    homescore &lt;- rpois(1, lambdas.2019$homelambda[j])
+    awayscore &lt;- rpois(1, lambdas.2019$awaylambda[j])
+    hometeam &lt;- lambdas.2019$Hometeam[j]
+    awayteam &lt;- lambdas.2019$Awayteam[j]
+    
+    #populate scores
+    Ladder[Ladder$Team == hometeam,]$For &lt;- Ladder[Ladder$Team == hometeam,]$For + homescore
+    Ladder[Ladder$Team == hometeam,]$Against &lt;- Ladder[Ladder$Team == hometeam,]$Against + awayscore 
+    Ladder[Ladder$Team == awayteam,]$For &lt;- Ladder[Ladder$Team == awayteam,]$For + awayscore
+    Ladder[Ladder$Team == awayteam,]$Against &lt;- Ladder[Ladder$Team == awayteam,]$Against + homescore
+    
+    #populate table for draw
+    if (homescore == awayscore) {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$D &lt;- Ladder[Ladder$Team == hometeam,]$D + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$D &lt;- Ladder[Ladder$Team == awayteam,]$D + 1
+      
+      #populate table for hometeam win
+    } else if (homescore &gt; awayscore) {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$W &lt;- Ladder[Ladder$Team == hometeam,]$W + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$L &lt;- Ladder[Ladder$Team == awayteam,]$L + 1
+      
+      #populate for away team win
+    } else {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$L &lt;- Ladder[Ladder$Team == hometeam,]$L + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$W &lt;- Ladder[Ladder$Team == awayteam,]$W + 1
+    }
+    
+  }
+  
+  #calculate points and percentage and order final table
+  #note that under AFL rules, if points are equal then ranked by percentage
+  Ladder$Pct &lt;- Ladder$For / Ladder$Against * 100
+  Ladder$Pts &lt;- (Ladder$W * 4) + (Ladder$D * 2)
+  FinalLadder &lt;- Ladder %&gt;% arrange(desc(Pts), desc(Pct))
+  
+  #populate simulation results table
+  for (k in 1:nrow(FinalLadder)) {
+    SimResults[i, FinalLadder$Team[k]] &lt;- k
+  }
+} 
+
+#Print and inspect results of Simulations
+SimResultspois.2019 &lt;- as_tibble(SimResults)
+
+
+#Make table summarising results of simulation
+Finalsimtable &lt;- cbind.data.frame(MeanPos = colMeans(SimResultspois.2019),
+                                  MedianPos = apply(SimResultspois.2019, 2, median),
+                                  BestPos = apply(SimResultspois.2019, 2, min),
+                                  WorstPos = apply(SimResultspois.2019, 2, max),
+                                  percentWon =  apply(SimResultspois.2019 == 1, 2, sum)/nrow(SimResultspois.2019)*100,
+                                  percentTop4 = apply(SimResultspois.2019 &lt;= 4, 2, sum)/nrow(SimResultspois.2019)*100,
+                                  percentTop8 = apply(SimResultspois.2019 &lt;= 8, 2, sum)/nrow(SimResultspois.2019)*100,
+                                  percentBottom4 = apply(SimResultspois.2019 &gt; 14, 2, sum)/nrow(SimResultspois.2019)*100,
+                                  percentLast = apply(SimResultspois.2019 == 18, 2, sum)/nrow(SimResultspois.2019)*100) %&gt;%
+  cbind.data.frame(Team = strengths$Team) 
+
+Finalsimtablepois.2019 &lt;- Finalsimtable[,c(10, 2, 1, 3:9)] %&gt;% arrange(MedianPos, MeanPos)</code></pre>
+</div>
+<div id="normal-model-simulations" class="section level2">
+<h2>Normal model simulations</h2>
+<pre class="r"><code>####NORM SIMULATIONS####
+Nsim.norm.2019 &lt;- 10
+
+#set up simulation results table
+SimResults &lt;- matrix(data = 0, nrow = Nsim.norm.2019, ncol = 18)
+colnames(SimResults) &lt;- strengths$Team
+
+for (i in 1:Nsim.norm.2019){
+  
+  #create Ladder for each season
+  Ladder &lt;- tibble(Team = strengths$Team, W = 0, L = 0, D = 0, Pts = 0,
+                   For = 0, Against = 0, Pct = 0)
+  
+  #simulate each season.
+  for (j in 1:nrow(lambdas.2019)) {
+    
+    #Here is the model working -- each score is simply a random drawing 
+    #from a normal dist characterised by our lambda as mean, and sd
+    homescore &lt;- rnorm(1, mean = lambdas.2019$homelambda[j], sd = lambdas.2019$homesd[j])
+    awayscore &lt;- rnorm(1, lambdas.2019$awaylambda[j], sd = lambdas.2019$awaysd[j])
+    hometeam &lt;- lambdas.2019$Hometeam[j]
+    awayteam &lt;- lambdas.2019$Awayteam[j]
+    
+    #populate scores
+    Ladder[Ladder$Team == hometeam,]$For &lt;- Ladder[Ladder$Team == hometeam,]$For + homescore
+    Ladder[Ladder$Team == hometeam,]$Against &lt;- Ladder[Ladder$Team == hometeam,]$Against + awayscore 
+    Ladder[Ladder$Team == awayteam,]$For &lt;- Ladder[Ladder$Team == awayteam,]$For + awayscore
+    Ladder[Ladder$Team == awayteam,]$Against &lt;- Ladder[Ladder$Team == awayteam,]$Against + homescore
+    
+    #populate table for draw
+    if (homescore == awayscore) {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$D &lt;- Ladder[Ladder$Team == hometeam,]$D + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$D &lt;- Ladder[Ladder$Team == awayteam,]$D + 1
+      
+      #populate table for hometeam win
+    } else if (homescore &gt; awayscore) {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$W &lt;- Ladder[Ladder$Team == hometeam,]$W + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$L &lt;- Ladder[Ladder$Team == awayteam,]$L + 1
+      
+      #populate for away team win
+    } else {
+      #hometeam changes
+      Ladder[Ladder$Team == hometeam,]$L &lt;- Ladder[Ladder$Team == hometeam,]$L + 1
+      
+      #awayteam changes
+      Ladder[Ladder$Team == awayteam,]$W &lt;- Ladder[Ladder$Team == awayteam,]$W + 1
+    }
+    
+  }
+  
+  #calculate points and percentage and order final table
+  #note that under AFL rules, if points are equal then ranked by percentage
+  Ladder$Pct &lt;- Ladder$For / Ladder$Against * 100
+  Ladder$Pts &lt;- (Ladder$W * 4) + (Ladder$D * 2)
+  FinalLadder &lt;- Ladder %&gt;% arrange(desc(Pts), desc(Pct))
+  
+  #populate simulation results table
+  for (k in 1:nrow(FinalLadder)) {
+    SimResults[i, FinalLadder$Team[k]] &lt;- k
+  }
+} 
+
+#Print and inspect results of Simulation
+SimResultsnorm.2019 &lt;- as_tibble(SimResults)
+
+
+#Make tabe summarising results of simulation
+Finalsimtable.2019 &lt;- cbind.data.frame(MeanPos = colMeans(SimResultsnorm.2019),
+                                  MedianPos = apply(SimResultsnorm.2019, 2, median),
+                                  BestPos = apply(SimResultsnorm.2019, 2, min),
+                                  WorstPos = apply(SimResultsnorm.2019, 2, max),
+                                  percentWon =  apply(SimResultsnorm.2019 == 1, 2, sum)/nrow(SimResultsnorm.2019)*100,
+                                  percentTop4 = apply(SimResultsnorm.2019 &lt;= 4, 2, sum)/nrow(SimResultsnorm.2019)*100,
+                                  percentTop8 = apply(SimResultsnorm.2019 &lt;= 8, 2, sum)/nrow(SimResultsnorm.2019)*100,
+                                  percentBottom4 = apply(SimResultsnorm.2019 &gt; 14, 2, sum)/nrow(SimResultsnorm.2019)*100,
+                                  percentLast = apply(SimResultsnorm.2019 == 18, 2, sum)/nrow(SimResultsnorm.2019)*100) %&gt;%
+  cbind.data.frame(Team = strengths$Team)
+
+Finalsimtablenorm.2019 &lt;- Finalsimtable[,c(10, 2, 1, 3:9)] %&gt;% arrange(MedianPos, MeanPos)</code></pre>
+</div>
+</div>
+<div id="rankings-model-tanh" class="section level1">
+<h1>Rankings Model: Tanh</h1>
+<pre class="r"><code>####TANH MODEL SIMULATIONS####
+#set some params and functions
+drawrate &lt;- 7 / (198*5)
+drawparam &lt;- atanh(-drawrate)
+probwin &lt;- function(a, b, w, d = drawparam){
+  return((tanh(((a - b)/w) + d) + 1)/ 2)}
+
+# reverse ladder order to get rankings needed for the model
+rankings &lt;- rev(finalTable2018$Team)
+
+##SIMULATIONS## 
+Nsim.tanh.2019 &lt;- 10 # for each weight parameter looped over
+w &lt;- 20
+#create table for each simulation
+gameresults.tanh &lt;- matrix(data = 0, nrow = Nsim.tanh.2019, ncol = nrow(fixture2019))
+
+#initilise lists
+gameresultslist&lt;- list()
+SimResultsList.2019 &lt;- list()
+Finalsimlist.2019 &lt;- list()
+
+#loop over weight factor 
+  for (i in 1:nrow(fixture2019)) {
+    PW &lt;- probwin(match(fixture2019[i, 1], rankings),
+                  match(fixture2019[i, 2], rankings), 
+                  w)
+    PL &lt;- probwin(match(fixture2019[i, 2], rankings),
+                  match(fixture2019[i, 1], rankings), 
+                  w)
+    PD &lt;- 1 - PW - PL 
+    gameresults.tanh[,i] &lt;- sample(x = c(&quot;W&quot;, &quot;L&quot;, &quot;D&quot;), size = Nsim.tanh.2019, replace = TRUE, prob = c(PW, PL, PD))
+  }
+  
+  gameresultslist[[w]] &lt;- gameresults.tanh
+  
+  #create sim results
+  SimResults &lt;- matrix(data = 0, nrow = Nsim.tanh.2019, ncol = 18)
+  colnames(SimResults) &lt;- strengths$Team
+  
+  for (i in 1:nrow(gameresults.tanh)) {
+    
+    #create the ladder for each season.
+    Ladder &lt;- tibble(Team = Ladder$Team, W = 0, L = 0, D = 0, Pts = 0)
+    
+    for (j in 1:ncol(gameresults.tanh)){
+      
+      hometeam.tanh &lt;- as.character(fixture2019[j,1])
+      awayteam.tanh &lt;- as.character(fixture2019[j,2])
+      
+      if(gameresultslist[[w]][i,j] == &quot;W&quot;) {  
+        Ladder[Ladder$Team == hometeam.tanh,]$W &lt;- Ladder[Ladder$Team == hometeam.tanh,]$W + 1 
+        Ladder[Ladder$Team == awayteam.tanh,]$L &lt;- Ladder[Ladder$Team == awayteam.tanh,]$L + 1
+        
+      } else if (gameresultslist[[w]][i,j] == &quot;L&quot;) {
+        Ladder[Ladder$Team == hometeam.tanh,]$L &lt;- Ladder[Ladder$Team == hometeam.tanh,]$L + 1
+        Ladder[Ladder$Team == awayteam.tanh,]$W &lt;- Ladder[Ladder$Team == awayteam.tanh,]$W + 1 
+        
+      } else {
+        Ladder[Ladder$Team == hometeam.tanh,]$D &lt;- Ladder[Ladder$Team == hometeam.tanh,]$D + 1
+        Ladder[Ladder$Team == awayteam.tanh,]$D &lt;- Ladder[Ladder$Team == awayteam.tanh,]$D + 1
+        
+      }
+      
+    } 
+    
+    #calculate points and percentage and order final table
+    #note that under AFL rules, if points are equal then ranked by percentage
+    Ladder$Pts &lt;- (Ladder$W * 4) + (Ladder$D * 2)
+    FinalLadder &lt;- Ladder %&gt;% arrange(desc(Pts), desc(rankings))
+    
+    #populate simulation results table
+    for (k in 1:nrow(FinalLadder)) {
+      SimResults[i, FinalLadder$Team[k]] &lt;- k
+      SimResultsList.2019[[w]] &lt;- SimResults
+
+    }
+    
+  }
+  
+  #Make tabe summarising results of simulation
+  Finalsimtabletanh &lt;- cbind.data.frame(MeanPos = colMeans(SimResultsList.2019[[w]]),
+                                        MedianPos = apply(SimResultsList.2019[[w]], 2, median),
+                                        BestPos = apply(SimResultsList.2019[[w]], 2, min),
+                                        WorstPos = apply(SimResultsList.2019[[w]], 2, max),
+                                        percentWon =  apply(SimResultsList.2019[[w]] == 1, 2, sum)/nrow(SimResultsList.2019[[w]])*100,
+                                        percentTop4 = apply(SimResultsList.2019[[w]] &lt;= 4, 2, sum)/nrow(SimResultsList.2019[[w]])*100,
+                                        percentTop8 = apply(SimResultsList.2019[[w]] &lt;= 8, 2, sum)/nrow(SimResultsList.2019[[w]])*100,
+                                        percentBottom4 = apply(SimResultsList.2019[[w]] &gt; 14, 2, sum)/nrow(SimResultsList.2019[[w]])*100,
+                                        percentLast = apply(SimResultsList.2019[[w]] == 18, 2, sum)/nrow(SimResultsList.2019[[w]])*100) %&gt;%
+    cbind.data.frame(Team = strengths$Team)  
+  
+  Finalsimtabletanh &lt;- Finalsimtabletanh[,c(10, 2, 1, 3:9)] %&gt;% arrange(MedianPos, MeanPos)
+  Finalsimlist.2019[[w]] &lt;- Finalsimtabletanh</code></pre>
+</div>
+<div id="postscript-how-are-my-models-fairing-so-far" class="section level1">
+<h1>Postscript: How are my models fairing so far?</h1>
+<p>We are now 4 weeks into the 22 week AFL season, and the models are not looking so good. THis is really quite unsurprising — The first few weeks of the AFL season are always a tumultous time. Here</p>
+</div>
