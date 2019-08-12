@@ -7,6 +7,10 @@
 - A textual/citation analysis in the law of something i'm interetsted in possibly the engineers case
 -  analysis of the overton window. 
 - A mathematiclal/computational way of explaining left and right wing in the modern era. Factors, PCA clusters? 
+-- try to find survey or behavioural data and then try clustering techniques. 
 
 What is the theme?
 - Primarilty, the use of data and good data analysis to answer interesing questions in social science and other interesting tidbits. 
+
+
+- write package to implement muthe and muthen in R. 
